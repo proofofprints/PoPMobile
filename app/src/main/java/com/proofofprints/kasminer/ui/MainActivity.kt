@@ -111,6 +111,10 @@ class MainActivity : ComponentActivity() {
         var sharesFound by remember { mutableIntStateOf(0) }
         var isRunning by remember { mutableStateOf(false) }
         var poolConnected by remember { mutableStateOf(false) }
+        var cpuTemp by remember { mutableFloatStateOf(0f) }
+        var batteryPercent by remember { mutableIntStateOf(100) }
+        var thermalState by remember { mutableStateOf("NORMAL") }
+        var activeThreads by remember { mutableIntStateOf(0) }
 
         // Update stats periodically
         LaunchedEffect(serviceBound.value) {
@@ -121,6 +125,10 @@ class MainActivity : ComponentActivity() {
                     sharesFound = it.sharesFound
                     isRunning = it.isRunning
                     poolConnected = it.isPoolConnected
+                    cpuTemp = it.cpuTemp
+                    batteryPercent = it.batteryPercent
+                    thermalState = it.thermalState.name
+                    activeThreads = it.activeThreads
                 }
                 delay(1000)
             }
@@ -209,11 +217,57 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    StatCard(
-                        label = "THREADS",
-                        value = "$threads CPU cores",
-                        color = Color(0xFFFF6B6B)
-                    )
+                    // Threads & thermal row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        StatCard(
+                            label = "THREADS",
+                            value = if (isRunning) "$activeThreads / $threads" else "$threads cores",
+                            color = Color(0xFFFF6B6B),
+                            modifier = Modifier.weight(1f)
+                        )
+                        StatCard(
+                            label = "CPU TEMP",
+                            value = if (cpuTemp > 0) "${cpuTemp.toInt()}°C" else "--",
+                            color = when {
+                                cpuTemp >= 55 -> Color(0xFFFF4444)
+                                cpuTemp >= 50 -> Color(0xFFFF8C00)
+                                cpuTemp >= 45 -> Color(0xFFFFD700)
+                                else -> Color(0xFF49EACB)
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    // Battery & thermal state row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        StatCard(
+                            label = "BATTERY",
+                            value = "$batteryPercent%",
+                            color = when {
+                                batteryPercent <= 10 -> Color(0xFFFF4444)
+                                batteryPercent <= 20 -> Color(0xFFFFD700)
+                                else -> Color(0xFF49EACB)
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                        StatCard(
+                            label = "THERMAL",
+                            value = thermalState,
+                            color = when (thermalState) {
+                                "CRITICAL" -> Color(0xFFFF4444)
+                                "THROTTLE" -> Color(0xFFFF8C00)
+                                "WARNING" -> Color(0xFFFFD700)
+                                else -> Color(0xFF49EACB)
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(8.dp))
 

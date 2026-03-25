@@ -41,6 +41,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     private val stratumClient = StratumClient(this)
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var wakeLock: PowerManager.WakeLock? = null
+    private lateinit var thermalMonitor: ThermalMonitor
 
     // Mining config
     var poolHost: String = ""
@@ -49,6 +50,19 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     var workerName: String = "KASMobile"
     var threadCount: Int = 2
     var currentDifficulty: Double = 1.0
+
+    // Thermal state exposed to UI
+    var cpuTemp: Float = 0f
+        private set
+    var batteryPercent: Int = 100
+        private set
+    var isCharging: Boolean = false
+        private set
+    var thermalState: ThermalMonitor.ThermalState = ThermalMonitor.ThermalState.NORMAL
+        private set
+    var activeThreads: Int = 0
+        private set
+    private var thermalPaused: Boolean = false
 
     // Stats exposed to UI
     val hashrate: Double get() = miningEngine.hashrate
@@ -60,11 +74,13 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     // Listener for UI updates
     var onStatsUpdate: (() -> Unit)? = null
     var onShareSubmitted: (() -> Unit)? = null
+    var onThermalWarning: ((ThermalMonitor.ThermalState, Float) -> Unit)? = null
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
         miningEngine.setShareCallback(this)
+        thermalMonitor = ThermalMonitor(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -120,10 +136,51 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     }
 
     private suspend fun statsUpdateLoop() {
-        while (miningEngine.isRunning) {
+        while (miningEngine.isRunning || thermalPaused) {
+            // Thermal check every cycle
+            val status = thermalMonitor.getStatus(threadCount)
+            cpuTemp = status.cpuTemp
+            batteryPercent = status.batteryPercent
+            isCharging = status.isCharging
+            thermalState = status.thermalState
+
+            when (status.thermalState) {
+                ThermalMonitor.ThermalState.CRITICAL -> {
+                    if (miningEngine.isRunning) {
+                        Log.w(TAG, "THERMAL CRITICAL (${cpuTemp}°C) — pausing mining!")
+                        miningEngine.stop()
+                        thermalPaused = true
+                        activeThreads = 0
+                        onThermalWarning?.invoke(status.thermalState, cpuTemp)
+                    }
+                }
+                ThermalMonitor.ThermalState.THROTTLE -> {
+                    val recommended = status.recommendedThreads
+                    if (miningEngine.isRunning && recommended < activeThreads) {
+                        Log.w(TAG, "THERMAL THROTTLE (${cpuTemp}°C) — reducing to $recommended threads")
+                        miningEngine.stop()
+                        miningEngine.start(recommended)
+                        activeThreads = recommended
+                        onThermalWarning?.invoke(status.thermalState, cpuTemp)
+                    }
+                }
+                ThermalMonitor.ThermalState.NORMAL -> {
+                    // Resume from thermal pause if cooled down
+                    if (thermalPaused && !miningEngine.isRunning) {
+                        Log.i(TAG, "Thermal normal (${cpuTemp}°C) — resuming mining")
+                        miningEngine.start(threadCount)
+                        activeThreads = threadCount
+                        thermalPaused = false
+                    }
+                }
+                ThermalMonitor.ThermalState.WARNING -> {
+                    onThermalWarning?.invoke(status.thermalState, cpuTemp)
+                }
+            }
+
             updateNotification()
             onStatsUpdate?.invoke()
-            delay(2000) // Update every 2 seconds
+            delay(3000) // Check every 3 seconds
         }
     }
 
@@ -154,8 +211,9 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
         miningEngine.setJob(headerHash, jobId, target)
 
         // Start mining threads if not already running
-        if (!miningEngine.isRunning) {
+        if (!miningEngine.isRunning && !thermalPaused) {
             miningEngine.start(threadCount)
+            activeThreads = threadCount
             updateNotification("Mining...")
         }
     }
@@ -224,9 +282,10 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     }
 
     private fun updateNotification(status: String? = null) {
+        val thermalInfo = if (cpuTemp > 0) " | ${cpuTemp.toInt()}°C" else ""
         val text = status ?: String.format(
-            "%.2f H/s | %d shares | %s hashes",
-            hashrate, sharesFound, formatHashes(totalHashes)
+            "%.2f H/s | %d shares%s",
+            hashrate, sharesFound, thermalInfo
         )
         val nm = getSystemService(NotificationManager::class.java)
         nm.notify(NOTIFICATION_ID, createNotification(text))
