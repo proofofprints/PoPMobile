@@ -139,26 +139,71 @@ void set_target_from_difficulty(double difficulty, uint8_t *target) {
 
     if (difficulty <= 0) difficulty = 0.0001;
 
-    /* Difficulty 1 target: 00000000ffff0000...00 */
-    uint8_t diff1[32] = {0};
-    diff1[4] = 0xff;
-    diff1[5] = 0xff;
+    /*
+     * Kaspa difficulty-to-target conversion.
+     *
+     * The diff-1 target is: 00000000 FFFF0000 00000000 ... (32 bytes big-endian)
+     * which represents the 256-bit value 0xFFFF << 208.
+     *
+     * For a given difficulty D, target = diff1_target / D.
+     *
+     * We compute this using 64-bit arithmetic on the significant bits,
+     * then place the result at the correct byte offset in the 32-byte target.
+     *
+     * The diff-1 numerator 0xFFFF sits at bytes [4..5] (bits 215..200).
+     * Dividing by D shifts the value and we need to place the quotient
+     * at the right position.
+     */
 
-    if (difficulty >= 1.0) {
-        memcpy(target, diff1, 32);
-    } else {
-        /* Fractional difficulty — scale target up (easier) */
-        double scale = 1.0 / difficulty;
-        uint32_t base_value = 0xffff;
-        uint64_t scaled = (uint64_t)(base_value * scale);
+    /*
+     * Use a large numerator for precision: 0xFFFF shifted left by 48 bits
+     * gives us a 64-bit value we can divide, then place the result
+     * across the appropriate bytes.
+     */
+    uint64_t numerator_hi = 0xFFFFULL;
 
-        if (scaled > 0xFFFFFFFFFFFFULL) scaled = 0xFFFFFFFFFFFFULL;
+    /* Scale: we work with (0xFFFF * 2^48) / difficulty to get ~64 bits of quotient */
+    double quotient_d = (double)numerator_hi * (double)(1ULL << 48) / difficulty;
 
-        target[0] = (scaled >> 40) & 0xFF;
-        target[1] = (scaled >> 32) & 0xFF;
-        target[2] = (scaled >> 24) & 0xFF;
-        target[3] = (scaled >> 16) & 0xFF;
-        target[4] = (scaled >> 8) & 0xFF;
-        target[5] = scaled & 0xFF;
+    if (quotient_d >= (double)UINT64_MAX) {
+        /* Difficulty < 1 and very small — target is huge, fill generously */
+        target[0] = 0xFF;
+        target[1] = 0xFF;
+        target[2] = 0xFF;
+        target[3] = 0xFF;
+        target[4] = 0xFF;
+        target[5] = 0xFF;
+        return;
     }
+
+    uint64_t quotient = (uint64_t)quotient_d;
+
+    /*
+     * The quotient represents the value of bytes [4..11] of the target
+     * (the 8 bytes starting at offset 4).
+     *
+     * Byte layout (big-endian):
+     *   target[4]  = bits 63..56 of quotient
+     *   target[5]  = bits 55..48
+     *   target[6]  = bits 47..40
+     *   target[7]  = bits 39..32
+     *   target[8]  = bits 31..24
+     *   target[9]  = bits 23..16
+     *   target[10] = bits 15..8
+     *   target[11] = bits 7..0
+     *
+     * For difficulty = 1: quotient = 0xFFFF << 48 = 0xFFFF000000000000
+     *   target[4] = 0xFF, target[5] = 0xFF, target[6..11] = 0x00  ✓ matches diff-1
+     *
+     * For difficulty = 2: quotient = 0x7FFF800000000000
+     *   target[4] = 0x7F, target[5] = 0xFF, target[6] = 0x80 ...  ✓ half of diff-1
+     */
+    target[4]  = (uint8_t)((quotient >> 56) & 0xFF);
+    target[5]  = (uint8_t)((quotient >> 48) & 0xFF);
+    target[6]  = (uint8_t)((quotient >> 40) & 0xFF);
+    target[7]  = (uint8_t)((quotient >> 32) & 0xFF);
+    target[8]  = (uint8_t)((quotient >> 24) & 0xFF);
+    target[9]  = (uint8_t)((quotient >> 16) & 0xFF);
+    target[10] = (uint8_t)((quotient >> 8)  & 0xFF);
+    target[11] = (uint8_t)((quotient)       & 0xFF);
 }

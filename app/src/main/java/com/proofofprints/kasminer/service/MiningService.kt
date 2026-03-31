@@ -207,7 +207,9 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     }
 
     override fun onNewJob(jobId: String, headerHash: ByteArray, timestamp: Long) {
+        Log.i(TAG, "New job $jobId, applying difficulty=$currentDifficulty")
         val target = miningEngine.setTargetFromDifficulty(currentDifficulty)
+        Log.i(TAG, "Target bytes: ${target.take(12).joinToString("") { "%02x".format(it) }}")
         miningEngine.setJob(headerHash, jobId, target)
 
         // Start mining threads if not already running

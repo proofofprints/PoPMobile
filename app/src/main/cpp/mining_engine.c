@@ -178,6 +178,12 @@ void mining_set_job(const uint8_t *header_hash, const char *job_id, const uint8_
     current_job_id[64] = '\0';
     has_job = true;
     pthread_mutex_unlock(&job_mutex);
+
+    LOGI("New job: %s, target: %02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x",
+         job_id,
+         target[0], target[1], target[2], target[3],
+         target[4], target[5], target[6], target[7],
+         target[8], target[9], target[10], target[11]);
 }
 
 double mining_get_hashrate(void) {
