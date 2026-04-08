@@ -49,7 +49,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     var walletAddress: String = ""
     var workerName: String = "KASMobile"
     var threadCount: Int = 2
-    var currentDifficulty: Double = 1.0
+    var currentDifficulty: Double = 0.001  // Reasonable starting diff for ~40 KH/s phone
 
     // Thermal state exposed to UI
     var cpuTemp: Float = 0f
@@ -70,6 +70,10 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     val sharesFound: Int get() = miningEngine.sharesFound
     val isRunning: Boolean get() = miningEngine.isRunning
     val isPoolConnected: Boolean get() = stratumClient.isConnected
+    var sharesAccepted: Int = 0
+        private set
+    var sharesRejected: Int = 0
+        private set
 
     // Listener for UI updates
     var onStatsUpdate: (() -> Unit)? = null
@@ -226,12 +230,14 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     }
 
     override fun onShareAccepted() {
-        Log.i(TAG, "Share accepted!")
+        sharesAccepted++
+        Log.i(TAG, "Share accepted! (A:$sharesAccepted R:$sharesRejected)")
         onShareSubmitted?.invoke()
     }
 
     override fun onShareRejected(reason: String) {
-        Log.w(TAG, "Share rejected: $reason")
+        sharesRejected++
+        Log.w(TAG, "Share rejected: $reason (A:$sharesAccepted R:$sharesRejected)")
     }
 
     // ===== MiningEngine.ShareCallback =====
@@ -286,8 +292,8 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     private fun updateNotification(status: String? = null) {
         val thermalInfo = if (cpuTemp > 0) " | ${cpuTemp.toInt()}°C" else ""
         val text = status ?: String.format(
-            "%.2f H/s | %d shares%s",
-            hashrate, sharesFound, thermalInfo
+            "%.2f H/s | A:%d R:%d%s",
+            hashrate, sharesAccepted, sharesRejected, thermalInfo
         )
         val nm = getSystemService(NotificationManager::class.java)
         nm.notify(NOTIFICATION_ID, createNotification(text))

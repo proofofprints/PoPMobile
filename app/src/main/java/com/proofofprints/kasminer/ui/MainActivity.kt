@@ -108,7 +108,8 @@ class MainActivity : ComponentActivity() {
         // Live stats
         var hashrate by remember { mutableDoubleStateOf(0.0) }
         var totalHashes by remember { mutableLongStateOf(0L) }
-        var sharesFound by remember { mutableIntStateOf(0) }
+        var sharesAccepted by remember { mutableIntStateOf(0) }
+        var sharesRejected by remember { mutableIntStateOf(0) }
         var isRunning by remember { mutableStateOf(false) }
         var poolConnected by remember { mutableStateOf(false) }
         var cpuTemp by remember { mutableFloatStateOf(0f) }
@@ -122,7 +123,8 @@ class MainActivity : ComponentActivity() {
                 miningService?.let {
                     hashrate = it.hashrate
                     totalHashes = it.totalHashes
-                    sharesFound = it.sharesFound
+                    sharesAccepted = it.sharesAccepted
+                    sharesRejected = it.sharesRejected
                     isRunning = it.isRunning
                     poolConnected = it.isPoolConnected
                     cpuTemp = it.cpuTemp
@@ -198,24 +200,15 @@ class MainActivity : ComponentActivity() {
                         color = Color(0xFF49EACB)
                     )
 
-                    // Stats row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        StatCard(
-                            label = "SHARES",
-                            value = sharesFound.toString(),
-                            color = Color(0xFFFFD700),
-                            modifier = Modifier.weight(1f)
-                        )
-                        StatCard(
-                            label = "HASHES",
-                            value = formatHashes(totalHashes),
-                            color = Color(0xFF8B5CF6),
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                    // Shares card
+                    SharesCard(accepted = sharesAccepted, rejected = sharesRejected)
+
+                    // Total hashes
+                    StatCard(
+                        label = "HASHES",
+                        value = formatHashes(totalHashes),
+                        color = Color(0xFF8B5CF6)
+                    )
 
                     // Threads & thermal row
                     Row(
@@ -375,6 +368,57 @@ class MainActivity : ComponentActivity() {
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace
                 )
+            }
+        }
+    }
+
+    @Composable
+    fun SharesCard(accepted: Int, rejected: Int) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("SHARES", color = Color.Gray, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            "A: ",
+                            color = Color(0xFF49EACB),
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            "$accepted",
+                            color = Color(0xFF49EACB),
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            "R: ",
+                            color = Color(0xFFFF4444),
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            "$rejected",
+                            color = Color(0xFFFF4444),
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
             }
         }
     }
