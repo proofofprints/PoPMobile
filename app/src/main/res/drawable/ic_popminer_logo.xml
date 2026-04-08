@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder: Replace this file with your PoPMiner logo PNG.
+     Save your logo as: app/src/main/res/drawable/ic_popminer_logo.png
+     Then delete this XML file. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+    <!-- Kaspa green circle -->
+    <path
+        android:fillColor="#49EACB"
+        android:pathData="M100,100m-70,0a70,70 0,1 1,140 0a70,70 0,1 1,-140 0" />
+    <!-- K symbol -->
+    <path
+        android:fillColor="#1A1A2E"
+        android:pathData="M75,60 L75,140 L90,140 L90,110 L120,140 L140,140 L105,105 L135,60 L115,60 L90,100 L90,60 Z"
+        android:strokeWidth="0" />
+</vector>
