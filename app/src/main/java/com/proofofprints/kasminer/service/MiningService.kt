@@ -75,6 +75,20 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     var sharesRejected: Int = 0
         private set
 
+    // Mining log (ring buffer of recent events)
+    private val _miningLog = mutableListOf<String>()
+    val miningLog: List<String> get() = synchronized(_miningLog) { _miningLog.toList() }
+    private val maxLogEntries = 50
+
+    private fun addLog(message: String) {
+        val timestamp = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
+            .format(java.util.Date())
+        synchronized(_miningLog) {
+            _miningLog.add(0, "[$timestamp] $message")
+            if (_miningLog.size > maxLogEntries) _miningLog.removeLast()
+        }
+    }
+
     // Listener for UI updates
     var onStatsUpdate: (() -> Unit)? = null
     var onShareSubmitted: (() -> Unit)? = null
@@ -192,11 +206,13 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
 
     override fun onConnected() {
         Log.i(TAG, "Pool connected!")
+        addLog("Pool connected to $poolHost:$poolPort")
         updateNotification("Connected, waiting for job...")
     }
 
     override fun onDisconnected(reason: String) {
         Log.w(TAG, "Pool disconnected: $reason")
+        addLog("Pool disconnected: $reason")
         miningEngine.stop()
         updateNotification("Disconnected: $reason")
 
@@ -205,6 +221,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
             delay(5000)
             if (!stratumClient.isConnected) {
                 Log.i(TAG, "Attempting reconnect...")
+                addLog("Reconnecting...")
                 stratumClient.connect(poolHost, poolPort, walletAddress, workerName)
             }
         }
@@ -213,36 +230,42 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     override fun onNewJob(jobId: String, headerHash: ByteArray, timestamp: Long) {
         Log.i(TAG, "New job $jobId, applying difficulty=$currentDifficulty")
         val target = miningEngine.setTargetFromDifficulty(currentDifficulty)
-        Log.i(TAG, "Target bytes: ${target.take(12).joinToString("") { "%02x".format(it) }}")
         miningEngine.setJob(headerHash, jobId, target)
 
         // Start mining threads if not already running
         if (!miningEngine.isRunning && !thermalPaused) {
             miningEngine.start(threadCount)
             activeThreads = threadCount
+            addLog("Mining started ($threadCount threads)")
             updateNotification("Mining...")
         }
     }
 
     override fun onDifficultyChanged(difficulty: Double) {
+        val old = currentDifficulty
         currentDifficulty = difficulty
+        addLog("Difficulty: $old -> $difficulty")
         Log.i(TAG, "Difficulty updated: $difficulty")
     }
 
     override fun onShareAccepted() {
         sharesAccepted++
+        addLog("Share ACCEPTED (A:$sharesAccepted R:$sharesRejected)")
         Log.i(TAG, "Share accepted! (A:$sharesAccepted R:$sharesRejected)")
         onShareSubmitted?.invoke()
     }
 
     override fun onShareRejected(reason: String) {
         sharesRejected++
+        addLog("Share REJECTED: $reason")
         Log.w(TAG, "Share rejected: $reason (A:$sharesAccepted R:$sharesRejected)")
     }
 
     // ===== MiningEngine.ShareCallback =====
 
     override fun onShareFound(jobId: String, nonce: Long) {
+        val nonceHex = String.format("%016x", nonce)
+        addLog("Share found! Nonce: $nonceHex")
         Log.i(TAG, "Share found! Job: $jobId, Nonce: $nonce")
         stratumClient.submitShare(jobId, nonce)
     }
@@ -278,7 +301,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
         )
 
         return Notification.Builder(this, CHANNEL_ID)
-            .setContentTitle("KAS Miner")
+            .setContentTitle("PoPMiner")
             .setContentText(status)
             .setSmallIcon(android.R.drawable.ic_menu_manage)
             .setContentIntent(pendingIntent)

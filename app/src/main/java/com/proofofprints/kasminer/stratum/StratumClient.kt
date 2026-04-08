@@ -41,6 +41,7 @@ class StratumClient(
     private var readJob: Job? = null
     private val gson = Gson()
     private var messageId = 1
+    private var workerIdentity = ""  // "wallet.worker" for share submissions
 
     val isConnected: Boolean
         get() = socket?.isConnected == true && socket?.isClosed == false
@@ -54,13 +55,14 @@ class StratumClient(
                 reader = BufferedReader(InputStreamReader(socket!!.getInputStream()))
 
                 listener.onConnected()
+                workerIdentity = "$wallet.$worker"
 
                 // Subscribe
                 sendMessage("mining.subscribe", listOf(worker))
                 delay(500)
 
                 // Authorize
-                sendMessage("mining.authorize", listOf("$wallet.$worker"))
+                sendMessage("mining.authorize", listOf(workerIdentity))
 
                 // Start reading messages
                 startReading()
@@ -88,21 +90,9 @@ class StratumClient(
 
     fun submitShare(jobId: String, nonce: Long) {
         val nonceHex = String.format("%016x", nonce)
-        // Use a dedicated submit ID
-        val msg = JsonObject().apply {
-            addProperty("id", 4)
-            addProperty("method", "mining.submit")
-            add("params", JsonArray().apply {
-                add(nonceHex)  // Will be replaced with wallet.worker + jobId + nonce
-            })
-        }
-
-        // Match KASDeck format exactly
-        val submitMsg = """{"id": 4, "method": "mining.submit", "params": ["${listener.javaClass}", "$jobId", "$nonceHex"]}"""
-
-        // Actually, build it properly with the wallet address stored in the client
-        sendRaw("""{"id": ${messageId++}, "method": "mining.submit", "params": ["$jobId", "$nonceHex"]}""")
-        Log.i(TAG, "Submitted share - Job: $jobId, Nonce: $nonceHex")
+        // Bridge expects 3 params: [worker, jobId, nonce] — matches KASDeck format
+        sendRaw("""{"id": ${messageId++}, "method": "mining.submit", "params": ["$workerIdentity", "$jobId", "$nonceHex"]}""")
+        Log.i(TAG, "Submitted share - Worker: $workerIdentity, Job: $jobId, Nonce: $nonceHex")
     }
 
     private fun sendMessage(method: String, params: List<String>) {

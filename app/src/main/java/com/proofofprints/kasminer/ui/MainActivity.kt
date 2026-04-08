@@ -116,6 +116,8 @@ class MainActivity : ComponentActivity() {
         var batteryPercent by remember { mutableIntStateOf(100) }
         var thermalState by remember { mutableStateOf("NORMAL") }
         var activeThreads by remember { mutableIntStateOf(0) }
+        var difficulty by remember { mutableDoubleStateOf(0.0) }
+        var logLines by remember { mutableStateOf(listOf<String>()) }
 
         // Update stats periodically
         LaunchedEffect(serviceBound.value) {
@@ -131,6 +133,8 @@ class MainActivity : ComponentActivity() {
                     batteryPercent = it.batteryPercent
                     thermalState = it.thermalState.name
                     activeThreads = it.activeThreads
+                    difficulty = it.currentDifficulty
+                    logLines = it.miningLog
                 }
                 delay(1000)
             }
@@ -141,7 +145,7 @@ class MainActivity : ComponentActivity() {
                 TopAppBar(
                     title = {
                         Text(
-                            "KAS Mobile Miner",
+                            "PoPMiner",
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace
                         )
@@ -203,12 +207,24 @@ class MainActivity : ComponentActivity() {
                     // Shares card
                     SharesCard(accepted = sharesAccepted, rejected = sharesRejected)
 
-                    // Total hashes
-                    StatCard(
-                        label = "HASHES",
-                        value = formatHashes(totalHashes),
-                        color = Color(0xFF8B5CF6)
-                    )
+                    // Difficulty & hashes row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        StatCard(
+                            label = "DIFFICULTY",
+                            value = formatDifficulty(difficulty),
+                            color = Color(0xFFFFD700),
+                            modifier = Modifier.weight(1f)
+                        )
+                        StatCard(
+                            label = "HASHES",
+                            value = formatHashes(totalHashes),
+                            color = Color(0xFF8B5CF6),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
 
                     // Threads & thermal row
                     Row(
@@ -289,6 +305,11 @@ class MainActivity : ComponentActivity() {
                             fontFamily = FontFamily.Monospace,
                             color = if (isRunning) Color.White else Color.Black
                         )
+                    }
+
+                    // Mining log
+                    if (logLines.isNotEmpty()) {
+                        MiningLogCard(logLines)
                     }
 
                     // Disclaimer
@@ -424,6 +445,44 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
+    fun MiningLogCard(logLines: List<String>) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("MINING LOG", color = Color.Gray, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                Spacer(modifier = Modifier.height(8.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 200.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    logLines.take(15).forEach { line ->
+                        val color = when {
+                            "ACCEPTED" in line -> Color(0xFF49EACB)
+                            "REJECTED" in line -> Color(0xFFFF4444)
+                            "found" in line -> Color(0xFFFFD700)
+                            "Difficulty" in line -> Color(0xFFFF8C00)
+                            "disconnected" in line.lowercase() -> Color(0xFFFF4444)
+                            else -> Color(0xFF888888)
+                        }
+                        Text(
+                            text = line,
+                            color = color,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
     fun SettingsPanel(
         poolUrl: String,
         wallet: String,
@@ -546,6 +605,15 @@ class MainActivity : ComponentActivity() {
             action = MiningService.ACTION_STOP
         }
         startService(intent)
+    }
+
+    private fun formatDifficulty(d: Double): String = when {
+        d <= 0 -> "--"
+        d >= 1_000_000 -> String.format("%.1fM", d / 1_000_000)
+        d >= 1_000 -> String.format("%.1fK", d / 1_000)
+        d >= 1 -> String.format("%.2f", d)
+        d >= 0.01 -> String.format("%.4f", d)
+        else -> String.format("%.6f", d)
     }
 
     private fun formatHashrate(hr: Double): String = when {
