@@ -19,6 +19,7 @@ import android.os.IBinder
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -28,14 +29,20 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.proofofprints.kasminer.LogLevel
+import com.proofofprints.kasminer.LogManager
+import com.proofofprints.kasminer.R
 import com.proofofprints.kasminer.service.MiningService
 import kotlinx.coroutines.delay
 
@@ -104,11 +111,15 @@ class MainActivity : ComponentActivity() {
         var worker by remember { mutableStateOf(prefs.getString("worker", "KASMobile") ?: "KASMobile") }
         var threads by remember { mutableIntStateOf(prefs.getInt("threads", 2)) }
         var showSettings by remember { mutableStateOf(false) }
+        var showLogs by remember { mutableStateOf(false) }
+        var showAbout by remember { mutableStateOf(false) }
 
         // Live stats
         var hashrate by remember { mutableDoubleStateOf(0.0) }
         var totalHashes by remember { mutableLongStateOf(0L) }
         var sharesFound by remember { mutableIntStateOf(0) }
+        var sharesRejected by remember { mutableIntStateOf(0) }
+        var difficulty by remember { mutableDoubleStateOf(0.0) }
         var isRunning by remember { mutableStateOf(false) }
         var poolConnected by remember { mutableStateOf(false) }
         var cpuTemp by remember { mutableFloatStateOf(0f) }
@@ -129,6 +140,8 @@ class MainActivity : ComponentActivity() {
                     batteryPercent = it.batteryPercent
                     thermalState = it.thermalState.name
                     activeThreads = it.activeThreads
+                    difficulty = it.currentDifficulty
+                    sharesRejected = it.sharesRejected
                 }
                 delay(1000)
             }
@@ -138,22 +151,77 @@ class MainActivity : ComponentActivity() {
             topBar = {
                 TopAppBar(
                     title = {
-                        Text(
-                            "KAS Mobile Miner",
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Image(
+                                painter = painterResource(id = R.drawable.kaspa_logo),
+                                contentDescription = "Kaspa Logo",
+                                modifier = Modifier.size(32.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "PoPMiner",
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color(0xFF1A1A2E),
                         titleContentColor = Color(0xFF49EACB)
                     ),
                     actions = {
-                        TextButton(onClick = { showSettings = !showSettings }) {
+                        // Info button with circle border
+                        IconButton(onClick = {
+                            if (showAbout) { showAbout = false }
+                            else { showAbout = true; showSettings = false; showLogs = false }
+                        }) {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .background(Color.Transparent, shape = androidx.compose.foundation.shape.CircleShape)
+                                    .then(Modifier.padding(0.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "i",
+                                    color = Color(0xFF49EACB),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier
+                                        .background(Color.Transparent, shape = androidx.compose.foundation.shape.CircleShape)
+                                )
+                                // Circle outline
+                                Box(modifier = Modifier
+                                    .size(24.dp)
+                                    .background(Color.Transparent)
+                                    .then(
+                                        Modifier.drawBehind {
+                                            drawCircle(
+                                                color = androidx.compose.ui.graphics.Color(0xFF49EACB),
+                                                radius = size.minDimension / 2,
+                                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f)
+                                            )
+                                        }
+                                    )
+                                )
+                            }
+                        }
+                        // Logs / Dashboard toggle
+                        TextButton(onClick = {
+                            if (showLogs || showAbout || showSettings) { showLogs = false; showSettings = false; showAbout = false }
+                            else { showLogs = true; showSettings = false; showAbout = false }
+                        }) {
                             Text(
-                                if (showSettings) "Dashboard" else "Settings",
+                                if (showLogs || showAbout || showSettings) "Dashboard" else "Logs",
                                 color = Color(0xFF49EACB)
                             )
+                        }
+                        // Settings button
+                        TextButton(onClick = {
+                            if (showSettings) { showSettings = false }
+                            else { showSettings = true; showLogs = false; showAbout = false }
+                        }) {
+                            Text("Settings", color = Color(0xFF49EACB))
                         }
                     }
                 )
@@ -168,7 +236,11 @@ class MainActivity : ComponentActivity() {
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                if (showSettings) {
+                if (showAbout) {
+                    AboutPanel()
+                } else if (showLogs) {
+                    LogsPanel()
+                } else if (showSettings) {
                     SettingsPanel(
                         poolUrl = poolUrl,
                         wallet = wallet,
@@ -189,7 +261,7 @@ class MainActivity : ComponentActivity() {
                     )
                 } else {
                     // Status indicator
-                    StatusCard(isRunning = isRunning, poolConnected = poolConnected)
+                    StatusCard(isRunning = isRunning, poolConnected = poolConnected, difficulty = difficulty)
 
                     // Hashrate card
                     StatCard(
@@ -205,7 +277,7 @@ class MainActivity : ComponentActivity() {
                     ) {
                         StatCard(
                             label = "SHARES",
-                            value = sharesFound.toString(),
+                            value = if (sharesRejected > 0) "$sharesFound / ${sharesRejected}rej" else sharesFound.toString(),
                             color = Color(0xFFFFD700),
                             modifier = Modifier.weight(1f)
                         )
@@ -312,7 +384,7 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun StatusCard(isRunning: Boolean, poolConnected: Boolean) {
+    fun StatusCard(isRunning: Boolean, poolConnected: Boolean, difficulty: Double = 0.0) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
@@ -343,12 +415,22 @@ class MainActivity : ComponentActivity() {
                         fontFamily = FontFamily.Monospace
                     )
                 }
-                Text(
-                    if (poolConnected) "POOL: ONLINE" else "POOL: OFFLINE",
-                    color = if (poolConnected) Color(0xFF49EACB) else Color(0xFFFF4444),
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace
-                )
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        if (poolConnected) "POOL: ONLINE" else "POOL: OFFLINE",
+                        color = if (poolConnected) Color(0xFF49EACB) else Color(0xFFFF4444),
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    if (difficulty > 0) {
+                        Text(
+                            "DIFF: ${"%.4f".format(difficulty)}",
+                            color = Color(0xFF8B5CF6),
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
             }
         }
     }
@@ -392,6 +474,7 @@ class MainActivity : ComponentActivity() {
         onSave: () -> Unit
     ) {
         val maxThreads = Runtime.getRuntime().availableProcessors()
+        var showSaved by remember { mutableStateOf(false) }
 
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -435,12 +518,28 @@ class MainActivity : ComponentActivity() {
                 )
 
                 Button(
-                    onClick = onSave,
+                    onClick = { onSave(); showSaved = true },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF49EACB)),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text("SAVE", color = Color.Black, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                }
+
+                if (showSaved) {
+                    LaunchedEffect(Unit) {
+                        delay(2000)
+                        showSaved = false
+                    }
+                    Text(
+                        "Settings saved!",
+                        color = Color(0xFF49EACB),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
                 }
             }
         }
@@ -516,5 +615,131 @@ class MainActivity : ComponentActivity() {
         count >= 1_000_000 -> String.format("%.1fM", count / 1_000_000.0)
         count >= 1_000 -> String.format("%.1fK", count / 1_000.0)
         else -> count.toString()
+    }
+
+    @Composable
+    fun LogsPanel() {
+        val logs = LogManager.entries
+        val dateFormat = remember { java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()) }
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "MINING LOG (${logs.size})",
+                        color = Color(0xFF49EACB),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    TextButton(onClick = { LogManager.clear() }) {
+                        Text("Clear", color = Color.Gray)
+                    }
+                }
+                Text(
+                    "Logs are kept for up to 4 hours",
+                    color = Color.Gray,
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                logs.reversed().forEach { entry ->
+                    val ts = dateFormat.format(java.util.Date(entry.timestamp))
+                    val tag = when (entry.level) {
+                        LogLevel.INFO -> "[INF]"
+                        LogLevel.WARN -> "[WRN]"
+                        LogLevel.ERROR -> "[ERR]"
+                    }
+                    Text(
+                        "$ts $tag ${entry.message}",
+                        color = when (entry.level) {
+                            LogLevel.ERROR -> Color(0xFFFF4444)
+                            LogLevel.WARN -> Color(0xFFFFD700)
+                            LogLevel.INFO -> Color(0xFF49EACB)
+                        },
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun AboutPanel() {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.kaspa_logo_large),
+                    contentDescription = "Kaspa Logo",
+                    modifier = Modifier.size(120.dp)
+                )
+                Text(
+                    "PoPMiner",
+                    color = Color(0xFF49EACB),
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+                Image(
+                    painter = painterResource(id = R.drawable.pop_logo),
+                    contentDescription = "Proof of Prints Logo",
+                    modifier = Modifier.size(80.dp)
+                )
+                Text(
+                    "v1.0.0",
+                    color = Color.Gray,
+                    fontSize = 14.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+                Divider(
+                    color = Color(0xFF333333),
+                    thickness = 1.dp,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+                Text(
+                    "Developed by Proof of Prints",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+                Text(
+                    "support@proofofprints.com",
+                    color = Color(0xFF49EACB),
+                    fontSize = 14.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+                Text(
+                    "https://www.proofofprints.com",
+                    color = Color(0xFF49EACB),
+                    fontSize = 14.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    "Kaspa kHeavyHash mobile miner for Android.\nLottery-style mining — low hashrate expected.",
+                    color = Color.Gray,
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
     }
 }

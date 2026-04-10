@@ -1,15 +1,23 @@
 /**
- * Standalone Keccak-256 implementation for Kaspa mining.
+ * Keccak-f[1600] and cSHAKE256 implementation for Kaspa mining.
  *
- * Ported from the reference Keccak implementation.
- * Uses capacity=512, rate=1088, padding=0x01, output=256 bits.
- * This matches the Arduino KeccakCore behavior used in KASDeck.
+ * Implements:
+ *   - Keccak-f[1600] permutation
+ *   - cSHAKE256 (NIST SP 800-185) with domain separation
+ *
+ * cSHAKE256 is used by rusty-kaspa for:
+ *   - "ProofOfWorkHash": outer PoW hash (80 bytes input)
+ *   - "HeavyHash": inner heavy hash after matrix multiply (32 bytes input)
+ *
+ * Padding byte is 0x04 (cSHAKE), NOT 0x01 (Keccak) or 0x06 (SHA-3).
  *
  * Copyright (c) 2026 Proof of Prints
  */
 
 #include "keccak.h"
 #include <string.h>
+
+#define KECCAK_RATE 136  /* rate in bytes for 256-bit security (1088 bits) */
 
 /* Keccak-f[1600] round constants */
 static const uint64_t RC[24] = {
@@ -46,7 +54,7 @@ static inline uint64_t rotl64(uint64_t x, int y) {
 }
 
 /* Keccak-f[1600] permutation */
-static void keccakf(uint64_t state[25]) {
+void keccakf(uint64_t state[25]) {
     uint64_t t, bc[5];
 
     for (int round = 0; round < 24; round++) {
@@ -82,38 +90,75 @@ static void keccakf(uint64_t state[25]) {
     }
 }
 
-void keccak256(const uint8_t *input, size_t inlen, uint8_t *output) {
-    uint64_t state[25];
-    uint8_t temp[136]; /* rate = 1088 bits = 136 bytes */
-    const size_t rate = 136;
+/* ===== cSHAKE256 (NIST SP 800-185) ===== */
 
+void cshake256_hash(const uint8_t *name, size_t name_len,
+                    const uint8_t *data, size_t data_len,
+                    uint8_t *output) {
+    uint64_t state[25];
     memset(state, 0, sizeof(state));
 
-    /* Absorb full blocks */
-    while (inlen >= rate) {
-        for (size_t i = 0; i < rate / 8; i++) {
-            uint64_t lane;
-            memcpy(&lane, input + i * 8, 8);
-            state[i] ^= lane;
-        }
-        keccakf(state);
-        input += rate;
-        inlen -= rate;
+    /* 1. Build and absorb bytepad block (domain separation)
+     *
+     * bytepad(encode_string("") || encode_string(N), 136):
+     *   left_encode(136) = [0x01, 0x88]
+     *   encode_string("") = left_encode(0) = [0x01, 0x00]
+     *   encode_string(N) = left_encode(len(N)*8) || N
+     *   Pad with zeros to 136 bytes
+     */
+    uint8_t header[KECCAK_RATE];
+    size_t pos = 0;
+    memset(header, 0, KECCAK_RATE);
+
+    /* left_encode(136) */
+    header[pos++] = 1;
+    header[pos++] = 136;
+
+    /* encode_string("") = left_encode(0) */
+    header[pos++] = 1;
+    header[pos++] = 0;
+
+    /* encode_string(name) = left_encode(name_len*8) || name */
+    uint64_t bitlen = name_len * 8;
+    if (bitlen < 256) {
+        header[pos++] = 1;
+        header[pos++] = (uint8_t)bitlen;
+    } else {
+        header[pos++] = 2;
+        header[pos++] = (uint8_t)(bitlen >> 8);
+        header[pos++] = (uint8_t)(bitlen & 0xFF);
     }
+    memcpy(header + pos, name, name_len);
+    /* Rest is already zeroed — header is padded to 136 bytes */
 
-    /* Absorb final block with padding */
-    memset(temp, 0, rate);
-    memcpy(temp, input, inlen);
-    temp[inlen] = 0x01;       /* Keccak padding (NOT SHA3's 0x06) */
-    temp[rate - 1] |= 0x80;   /* Final bit of pad10*1 */
-
-    for (size_t i = 0; i < rate / 8; i++) {
+    /* XOR bytepad block into state and permute */
+    for (int i = 0; i < KECCAK_RATE / 8; i++) {
         uint64_t lane;
-        memcpy(&lane, temp + i * 8, 8);
+        memcpy(&lane, header + i * 8, 8);
         state[i] ^= lane;
     }
     keccakf(state);
 
-    /* Squeeze: extract 32 bytes (256 bits) */
+    /* 2. Absorb data + finalize with cSHAKE256 padding (0x04)
+     *
+     * For our use cases, data_len <= 136 (80 for PowHash, 32 for HeavyHash),
+     * so it fits in one rate block. */
+    uint8_t block[KECCAK_RATE];
+    memset(block, 0, KECCAK_RATE);
+    memcpy(block, data, data_len);
+
+    /* cSHAKE256 padding: 0x04 at data_len, 0x80 at last byte of rate */
+    block[data_len] = 0x04;
+    block[KECCAK_RATE - 1] |= 0x80;
+
+    /* XOR into state and permute */
+    for (int i = 0; i < KECCAK_RATE / 8; i++) {
+        uint64_t lane;
+        memcpy(&lane, block + i * 8, 8);
+        state[i] ^= lane;
+    }
+    keccakf(state);
+
+    /* 3. Squeeze 32 bytes */
     memcpy(output, state, 32);
 }

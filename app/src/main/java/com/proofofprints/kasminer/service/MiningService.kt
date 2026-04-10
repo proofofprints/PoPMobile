@@ -14,8 +14,10 @@ import android.content.Intent
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import android.net.wifi.WifiManager
 import android.os.PowerManager
 import android.util.Log
+import com.proofofprints.kasminer.LogManager
 import com.proofofprints.kasminer.mining.MiningEngine
 import com.proofofprints.kasminer.stratum.StratumClient
 import com.proofofprints.kasminer.ui.MainActivity
@@ -41,7 +43,10 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     private val stratumClient = StratumClient(this)
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var wakeLock: PowerManager.WakeLock? = null
+    private var wifiLock: WifiManager.WifiLock? = null
     private lateinit var thermalMonitor: ThermalMonitor
+    @Volatile
+    private var isStopping: Boolean = false
 
     // Mining config
     var poolHost: String = ""
@@ -49,7 +54,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     var walletAddress: String = ""
     var workerName: String = "KASMobile"
     var threadCount: Int = 2
-    var currentDifficulty: Double = 1.0
+    var currentDifficulty: Double = 0.0014
 
     // Thermal state exposed to UI
     var cpuTemp: Float = 0f
@@ -68,6 +73,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     val hashrate: Double get() = miningEngine.hashrate
     val totalHashes: Long get() = miningEngine.totalHashes
     val sharesFound: Int get() = miningEngine.sharesFound
+    val sharesRejected: Int get() = miningEngine.sharesRejected
     val isRunning: Boolean get() = miningEngine.isRunning
     val isPoolConnected: Boolean get() = stratumClient.isConnected
 
@@ -101,11 +107,20 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
 
     fun startMining() {
         Log.i(TAG, "Starting mining service...")
+        LogManager.info("Mining service starting ($threadCount threads)")
+        isStopping = false
 
         // Acquire wake lock to prevent CPU sleep
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "KASMiner::MiningLock")
         wakeLock?.acquire(4 * 60 * 60 * 1000L) // 4 hour max
+
+        // Acquire WiFi lock to prevent WiFi from being disabled during mining
+        @Suppress("DEPRECATION")
+        val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        @Suppress("DEPRECATION")
+        wifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "KASMiner:WifiLock")
+        wifiLock?.acquire()
 
         // Start foreground notification
         startForeground(NOTIFICATION_ID, createNotification("Connecting to pool..."))
@@ -125,12 +140,17 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
 
     fun stopMining() {
         Log.i(TAG, "Stopping mining service...")
+        isStopping = true
         miningEngine.stop()
         stratumClient.disconnect()
         wakeLock?.let {
             if (it.isHeld) it.release()
         }
         wakeLock = null
+        wifiLock?.let {
+            if (it.isHeld) it.release()
+        }
+        wifiLock = null
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -188,27 +208,62 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
 
     override fun onConnected() {
         Log.i(TAG, "Pool connected!")
+        LogManager.info("Pool connected successfully")
         updateNotification("Connected, waiting for job...")
     }
 
     override fun onDisconnected(reason: String) {
         Log.w(TAG, "Pool disconnected: $reason")
+        LogManager.warn("Pool disconnected: $reason")
         miningEngine.stop()
         updateNotification("Disconnected: $reason")
 
-        // Attempt reconnect after delay
+        // Attempt reconnect with exponential backoff
         serviceScope.launch {
-            delay(5000)
-            if (!stratumClient.isConnected) {
-                Log.i(TAG, "Attempting reconnect...")
-                stratumClient.connect(poolHost, poolPort, walletAddress, workerName)
+            var delayMs = 5_000L
+            val maxDelayMs = 60_000L
+            val maxRetries = 10
+
+            for (attempt in 1..maxRetries) {
+                if (isStopping) {
+                    Log.i(TAG, "Service stopping, aborting reconnect")
+                    return@launch
+                }
+                if (stratumClient.isConnected) {
+                    Log.i(TAG, "Already reconnected, aborting retry loop")
+                    return@launch
+                }
+
+                Log.i(TAG, "Reconnect attempt $attempt/$maxRetries in ${delayMs / 1000}s...")
+                updateNotification("Reconnecting ($attempt/$maxRetries)...")
+                delay(delayMs)
+
+                if (isStopping) return@launch
+
+                try {
+                    stratumClient.connect(poolHost, poolPort, walletAddress, workerName)
+                    if (stratumClient.isConnected) {
+                        Log.i(TAG, "Reconnected on attempt $attempt")
+                        return@launch
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Reconnect attempt $attempt failed: ${e.message}")
+                }
+
+                delayMs = minOf(delayMs * 2, maxDelayMs)
+            }
+
+            if (!isStopping) {
+                Log.e(TAG, "All $maxRetries reconnect attempts failed")
+                updateNotification("Connection lost — all retries exhausted")
             }
         }
     }
 
     override fun onNewJob(jobId: String, headerHash: ByteArray, timestamp: Long) {
+        LogManager.info("New job received: $jobId")
         val target = miningEngine.setTargetFromDifficulty(currentDifficulty)
-        miningEngine.setJob(headerHash, jobId, target)
+        miningEngine.setJob(headerHash, jobId, target, timestamp)
 
         // Start mining threads if not already running
         if (!miningEngine.isRunning && !thermalPaused) {
@@ -221,21 +276,32 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     override fun onDifficultyChanged(difficulty: Double) {
         currentDifficulty = difficulty
         Log.i(TAG, "Difficulty updated: $difficulty")
+        LogManager.info("Difficulty set to $difficulty")
     }
 
     override fun onShareAccepted() {
         Log.i(TAG, "Share accepted!")
+        LogManager.info("Share accepted!")
         onShareSubmitted?.invoke()
     }
 
     override fun onShareRejected(reason: String) {
         Log.w(TAG, "Share rejected: $reason")
+        LogManager.warn("Share rejected: $reason")
+        miningEngine.incrementRejected()
+    }
+
+    override fun onExtranonceSet(extranonce: String, extranonceShifted: Long, extranonce2Bits: Int) {
+        Log.i(TAG, "Extranonce set: $extranonce (prefix=0x${String.format("%016x", extranonceShifted)}, en2bits=$extranonce2Bits)")
+        LogManager.info("Extranonce: $extranonce")
+        miningEngine.setExtranonce(extranonceShifted, extranonce2Bits)
     }
 
     // ===== MiningEngine.ShareCallback =====
 
     override fun onShareFound(jobId: String, nonce: Long) {
         Log.i(TAG, "Share found! Job: $jobId, Nonce: $nonce")
+        LogManager.info("Share found! Job: $jobId")
         stratumClient.submitShare(jobId, nonce)
     }
 
