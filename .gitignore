@@ -10,3 +10,8 @@
 local.properties
 /app/build
 /app/.cxx
+
+# Release signing — never commit real keystores or passwords
+keystore.properties
+*.keystore
+*.jks
