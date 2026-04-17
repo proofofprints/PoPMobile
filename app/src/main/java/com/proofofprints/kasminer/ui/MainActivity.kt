@@ -273,40 +273,53 @@ class MainActivity : ComponentActivity() {
                 )
             }
         ) { padding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFF0F0F23))
-                    .padding(padding)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                if (showAbout) {
-                    AboutPanel()
-                } else if (showLogs) {
-                    LogsPanel()
-                } else if (showSettings) {
-                    SettingsPanel(
-                        poolUrl = poolUrl,
-                        wallet = wallet,
-                        worker = worker,
-                        threads = threads,
-                        onPoolUrlChange = { poolUrl = it },
-                        onWalletChange = { wallet = it },
-                        onWorkerChange = { worker = it },
-                        onThreadsChange = { threads = it },
-                        onSave = {
-                            prefs.edit()
-                                .putString("pool_url", poolUrl)
-                                .putString("wallet", wallet)
-                                .putString("worker", worker)
-                                .putInt("threads", threads)
-                                .apply()
-                        }
-                    )
-                } else {
-                    // Status indicator
+            if (showAbout || showLogs || showSettings) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFF0F0F23))
+                        .padding(padding)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    if (showAbout) {
+                        AboutPanel()
+                    } else if (showLogs) {
+                        LogsPanel()
+                    } else {
+                        SettingsPanel(
+                            poolUrl = poolUrl,
+                            wallet = wallet,
+                            worker = worker,
+                            threads = threads,
+                            onPoolUrlChange = { poolUrl = it },
+                            onWalletChange = { wallet = it },
+                            onWorkerChange = { worker = it },
+                            onThreadsChange = { threads = it },
+                            onSave = {
+                                prefs.edit()
+                                    .putString("pool_url", poolUrl)
+                                    .putString("wallet", wallet)
+                                    .putString("worker", worker)
+                                    .putInt("threads", threads)
+                                    .apply()
+                            }
+                        )
+                    }
+                }
+            } else {
+                // Dashboard fills the available viewport; the weighted spacer
+                // before the button keeps the button anchored near the bottom
+                // so the whole layout spans ~3/4 of the screen on any device.
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFF0F0F23))
+                        .padding(padding)
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     StatusCard(
                         isRunning = isRunning,
                         poolState = poolState,
@@ -315,14 +328,16 @@ class MainActivity : ComponentActivity() {
                         difficulty = difficulty
                     )
 
-                    // Hashrate card (hero)
+                    // Hashrate card (hero) — grows to fill surplus space
                     StatCard(
                         label = "HASHRATE",
                         value = formatHashrate(hashrate),
-                        color = Color(0xFF49EACB)
+                        color = Color(0xFF49EACB),
+                        modifier = Modifier.weight(1f, fill = true),
+                        valueFontSize = 40.sp,
+                        verticalArrangement = Arrangement.Center
                     )
 
-                    // 3-column compact stats row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -347,7 +362,6 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // 3-column device health row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -400,7 +414,7 @@ class MainActivity : ComponentActivity() {
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(52.dp),
+                            .height(64.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (sessionLive) Color(0xFFFF4444) else Color(0xFF49EACB)
                         ),
@@ -409,20 +423,19 @@ class MainActivity : ComponentActivity() {
                     ) {
                         Text(
                             if (sessionLive) "STOP MINING" else "START MINING",
-                            fontSize = 16.sp,
+                            fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace,
                             color = if (sessionLive) Color.White else Color.Black
                         )
                     }
 
-                    // Disclaimer
                     Text(
                         "Lottery-style mining. Low hashrate expected.",
                         color = Color.Gray,
-                        fontSize = 10.sp,
+                        fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(top = 2.dp).fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth(),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -512,20 +525,27 @@ class MainActivity : ComponentActivity() {
         label: String,
         value: String,
         color: Color,
-        modifier: Modifier = Modifier
+        modifier: Modifier = Modifier,
+        valueFontSize: androidx.compose.ui.unit.TextUnit = 24.sp,
+        verticalArrangement: Arrangement.Vertical = Arrangement.Top
     ) {
         Card(
             modifier = modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalArrangement = verticalArrangement
+            ) {
                 Text(label, color = Color.Gray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     value,
                     color = color,
-                    fontSize = 24.sp,
+                    fontSize = valueFontSize,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace
                 )
@@ -547,15 +567,15 @@ class MainActivity : ComponentActivity() {
             shape = RoundedCornerShape(10.dp)
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(label, color = Color.Gray, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                Spacer(modifier = Modifier.height(2.dp))
+                Text(label, color = Color.Gray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     value,
                     color = color,
-                    fontSize = 15.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
                     maxLines = 1
