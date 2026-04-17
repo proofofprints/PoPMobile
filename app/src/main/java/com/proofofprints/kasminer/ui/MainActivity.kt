@@ -328,15 +328,38 @@ class MainActivity : ComponentActivity() {
                         difficulty = difficulty
                     )
 
-                    // Hashrate card (hero) — grows to fill surplus space
-                    StatCard(
-                        label = "HASHRATE",
-                        value = formatHashrate(hashrate),
-                        color = Color(0xFF49EACB),
-                        modifier = Modifier.weight(1f, fill = true),
-                        valueFontSize = 40.sp,
-                        verticalArrangement = Arrangement.Center
-                    )
+                    // Hashrate card (hero) — centered on a fixed-height card
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(150.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                "HASHRATE",
+                                color = Color(0xFF49EACB),
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                formatHashrate(hashrate),
+                                color = Color(0xFF49EACB),
+                                fontSize = 44.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -399,6 +422,8 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.weight(1f)
                         )
                     }
+
+                    Spacer(modifier = Modifier.weight(1f))
 
                     // Start/Stop button — shows STOP whenever a session is
                     // active, even if the pool isn't connected yet, so the
@@ -525,27 +550,20 @@ class MainActivity : ComponentActivity() {
         label: String,
         value: String,
         color: Color,
-        modifier: Modifier = Modifier,
-        valueFontSize: androidx.compose.ui.unit.TextUnit = 24.sp,
-        verticalArrangement: Arrangement.Vertical = Arrangement.Top
+        modifier: Modifier = Modifier
     ) {
         Card(
             modifier = modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalArrangement = verticalArrangement
-            ) {
+            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
                 Text(label, color = Color.Gray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     value,
                     color = color,
-                    fontSize = valueFontSize,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace
                 )
