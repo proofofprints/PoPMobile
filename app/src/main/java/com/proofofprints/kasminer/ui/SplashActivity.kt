@@ -1,16 +1,16 @@
 /**
- * Splash screen — shows PoPMiner logo and Proof of Prints branding.
+ * Splash screen — shows Kaspa logo first, then PoP logo, then navigates to MainActivity.
  *
  * Copyright (c) 2026 Proof of Prints
  */
 package com.proofofprints.kasminer.ui
 
-import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.sp
 import com.proofofprints.kasminer.R
 import kotlinx.coroutines.delay
 
-@SuppressLint("CustomSplashScreen")
 class SplashActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,15 +43,28 @@ class SplashActivity : ComponentActivity() {
 
     @Composable
     fun SplashScreen(onFinished: () -> Unit) {
-        // Fade-in animation
-        val alpha = remember { Animatable(0f) }
+        // 0 = Kaspa logo, 1 = PoP logo, 2 = done
+        var phase by remember { mutableIntStateOf(0) }
+
+        val kaspaAlpha by animateFloatAsState(
+            targetValue = if (phase == 0) 1f else 0f,
+            animationSpec = tween(durationMillis = 800),
+            label = "kaspaFade"
+        )
+
+        val popAlpha by animateFloatAsState(
+            targetValue = if (phase == 1) 1f else 0f,
+            animationSpec = tween(durationMillis = 800),
+            label = "popFade"
+        )
 
         LaunchedEffect(Unit) {
-            alpha.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(durationMillis = 800, easing = EaseOutCubic)
-            )
-            delay(1500)
+            // Phase 0: Show Kaspa logo
+            delay(2000)
+            // Phase 1: Show PoP logo
+            phase = 1
+            delay(2000)
+            // Done
             onFinished()
         }
 
@@ -62,36 +74,46 @@ class SplashActivity : ComponentActivity() {
                 .background(Color(0xFF0F0F23)),
             contentAlignment = Alignment.Center
         ) {
+            // Kaspa logo (phase 0)
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.alpha(alpha.value)
+                modifier = Modifier.alpha(kaspaAlpha)
             ) {
-                // Logo
                 Image(
-                    painter = painterResource(id = R.drawable.ic_popminer_logo),
-                    contentDescription = "PoPMiner Logo",
-                    modifier = Modifier.size(200.dp)
+                    painter = painterResource(id = R.drawable.kaspa_logo_large),
+                    contentDescription = "Kaspa Logo",
+                    modifier = Modifier.size(180.dp)
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // PoPMiner title
                 Text(
-                    text = "PoPMiner",
+                    "PoPMobile",
                     color = Color(0xFF49EACB),
-                    fontSize = 42.sp,
+                    fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace
                 )
+            }
 
-                Spacer(modifier = Modifier.height(8.dp))
+            // PoP logo (phase 1)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.alpha(popAlpha)
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.pop_logo),
+                    contentDescription = "Proof of Prints Logo",
+                    modifier = Modifier.size(128.dp)
+                )
 
-                // Proof of Prints subtitle
+                Spacer(modifier = Modifier.height(24.dp))
+
                 Text(
-                    text = "Proof of Prints",
+                    "Proof of Prints",
                     color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Light,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace
                 )
             }

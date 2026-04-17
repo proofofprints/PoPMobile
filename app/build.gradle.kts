@@ -90,4 +90,9 @@ dependencies {
 
     // Preferences DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")
+
+    // QR code scanning via ZXing — bundled in the APK, works offline from
+    // first launch, no Play Services dependency. ~1 MB APK impact.
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    implementation("com.google.zxing:core:3.5.3")
 }

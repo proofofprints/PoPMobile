@@ -7,13 +7,18 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:name=".KASMinerApp"
         android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
-        android:label="PoPMiner"
+        android:icon="@mipmap/poplauncher"
+        android:roundIcon="@mipmap/poplauncher_round"
+        android:label="PoPMobile"
         android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
         android:theme="@style/Theme.KASMiner">
 
         <activity
@@ -35,5 +40,14 @@
             android:name=".service.MiningService"
             android:foregroundServiceType="specialUse"
             android:exported="false" />
+
+        <!-- Portrait-locked QR scanner for capturing Kaspa wallet addresses -->
+        <activity
+            android:name=".ui.QrScannerActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:stateNotNeeded="true"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+            android:windowSoftInputMode="stateAlwaysHidden" />
     </application>
 </manifest>

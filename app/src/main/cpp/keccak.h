@@ -1,12 +1,12 @@
 /**
- * Standalone Keccak-256 implementation for Kaspa mining.
+ * Keccak and cSHAKE256 implementation for Kaspa mining.
  *
- * This replaces the Arduino KeccakCore library with a platform-independent
- * implementation suitable for Android NDK.
+ * Kaspa's rusty-kaspa uses cSHAKE256 (NIST SP 800-185) with domain
+ * separation for its hash functions:
+ *   - "ProofOfWorkHash" for outer PoW hash (80 bytes input)
+ *   - "HeavyHash" for inner heavy hash (32 bytes input)
  *
- * Kaspa uses Keccak-256 (NOT SHA3-256 — no 0x06 domain separator).
- * Capacity = 512 bits, rate = 1088 bits, output = 256 bits.
- * Padding byte = 0x01 (standard Keccak, not SHA3's 0x06).
+ * Copyright (c) 2026 Proof of Prints
  */
 
 #ifndef KECCAK_H
@@ -20,13 +20,23 @@ extern "C" {
 #endif
 
 /**
- * Compute Keccak-256 hash.
+ * Compute cSHAKE256 one-shot hash with customization string.
+ * cSHAKE256(name, data) -> 32 bytes output.
  *
- * @param input   Input data
- * @param inlen   Length of input data in bytes
- * @param output  Output buffer (must be at least 32 bytes)
+ * @param name      Customization string (e.g., "ProofOfWorkHash", "HeavyHash")
+ * @param name_len  Length of name in bytes
+ * @param data      Input data
+ * @param data_len  Length of data (must be <= 136 bytes for single-block)
+ * @param output    32-byte output buffer
  */
-void keccak256(const uint8_t *input, size_t inlen, uint8_t *output);
+void cshake256_hash(const uint8_t *name, size_t name_len,
+                    const uint8_t *data, size_t data_len,
+                    uint8_t *output);
+
+/**
+ * Keccak-f[1600] permutation.
+ */
+void keccakf(uint64_t state[25]);
 
 #ifdef __cplusplus
 }

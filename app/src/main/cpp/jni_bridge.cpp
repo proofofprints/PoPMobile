@@ -74,13 +74,13 @@ Java_com_proofofprints_kasminer_mining_MiningEngine_nativeIsRunning(
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_proofofprints_kasminer_mining_MiningEngine_nativeSetJob(
-        JNIEnv *env, jobject thiz, jbyteArray headerHash, jstring jobId, jbyteArray target) {
+        JNIEnv *env, jobject thiz, jbyteArray headerHash, jstring jobId, jbyteArray target, jlong timestamp) {
 
     jbyte *header = env->GetByteArrayElements(headerHash, nullptr);
     jbyte *tgt = env->GetByteArrayElements(target, nullptr);
     const char *jid = env->GetStringUTFChars(jobId, nullptr);
 
-    mining_set_job((const uint8_t *)header, jid, (const uint8_t *)tgt);
+    mining_set_job((const uint8_t *)header, jid, (const uint8_t *)tgt, (uint64_t)timestamp);
 
     env->ReleaseByteArrayElements(headerHash, header, JNI_ABORT);
     env->ReleaseByteArrayElements(target, tgt, JNI_ABORT);
@@ -125,6 +125,18 @@ Java_com_proofofprints_kasminer_mining_MiningEngine_nativeSetShareCallback(
     }
 }
 
+extern "C" JNIEXPORT jint JNICALL
+Java_com_proofofprints_kasminer_mining_MiningEngine_nativeGetSharesRejected(
+        JNIEnv *env, jobject thiz) {
+    return (jint)mining_get_shares_rejected();
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_proofofprints_kasminer_mining_MiningEngine_nativeIncrementRejected(
+        JNIEnv *env, jobject thiz) {
+    mining_increment_rejected();
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_proofofprints_kasminer_mining_MiningEngine_nativeSetTargetFromDifficulty(
         JNIEnv *env, jobject thiz, jdouble difficulty, jbyteArray targetOut) {
@@ -133,4 +145,12 @@ Java_com_proofofprints_kasminer_mining_MiningEngine_nativeSetTargetFromDifficult
     set_target_from_difficulty(difficulty, target);
 
     env->SetByteArrayRegion(targetOut, 0, 32, (const jbyte *)target);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_proofofprints_kasminer_mining_MiningEngine_nativeSetExtranonce(
+        JNIEnv *env, jobject thiz, jlong extranoncePrefix, jint extranonce2Bits) {
+    LOGI("nativeSetExtranonce: prefix=0x%016llx, en2bits=%d",
+         (unsigned long long)extranoncePrefix, extranonce2Bits);
+    mining_set_extranonce((uint64_t)extranoncePrefix, (int)extranonce2Bits);
 }

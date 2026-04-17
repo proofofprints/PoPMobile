@@ -37,7 +37,7 @@ bool mining_is_running(void);
  * @param job_id       Null-terminated job ID string
  * @param target       32-byte target for difficulty check
  */
-void mining_set_job(const uint8_t *header_hash, const char *job_id, const uint8_t *target);
+void mining_set_job(const uint8_t *header_hash, const char *job_id, const uint8_t *target, uint64_t timestamp);
 
 /**
  * Get current hashrate in hashes/second.
@@ -63,7 +63,16 @@ typedef void (*share_found_callback)(const char *job_id, uint64_t nonce);
 /**
  * Set the callback for share submission.
  */
+uint32_t mining_get_shares_rejected(void);
+void mining_increment_rejected(void);
 void mining_set_share_callback(share_found_callback cb);
+
+/**
+ * Set extranonce from bridge.
+ * @param prefix     Extranonce value shifted to upper nonce bits
+ * @param en2_bits   Number of bits available for miner (lower bits)
+ */
+void mining_set_extranonce(uint64_t prefix, int en2_bits);
 
 #ifdef __cplusplus
 }
