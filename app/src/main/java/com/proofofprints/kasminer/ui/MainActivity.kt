@@ -456,7 +456,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     Text(
-                        "Lottery-style mining. Low hashrate expected.",
+                        "Low hashrate expected on mobile devices",
                         color = Color.Gray,
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
@@ -1226,7 +1226,7 @@ class MainActivity : ComponentActivity() {
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    "Kaspa kHeavyHash mobile miner for Android.\nLottery-style mining — low hashrate expected.",
+                    "Kaspa kHeavyHash mobile miner for Android.\nLow hashrate expected on mobile devices. Do not expect meaningful profit, utilize as lottery-style mining.",
                     color = Color.Gray,
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
