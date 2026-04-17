@@ -5,9 +5,9 @@ Kaspa kHeavyHash miner for Android, with optional [PoPManager](https://github.co
 > **Low hashrate expected on mobile devices.** Do not expect meaningful profit — treat it as lottery-style mining.
 
 <p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="260"/>
-  <img src="docs/screenshots/settings.png"  alt="Settings"  width="260"/>
-  <img src="docs/screenshots/logs.png"      alt="Mining log" width="260"/>
+  <img src="docs/screenshots/PoPMobile_MainDashboard.png" alt="Dashboard" width="260"/>
+  <img src="docs/screenshots/PoPMobile_Settings.png"      alt="Settings"  width="260"/>
+  <img src="docs/screenshots/PoPMobile_Logging.png"       alt="Mining log" width="260"/>
 </p>
 
 ## Features
