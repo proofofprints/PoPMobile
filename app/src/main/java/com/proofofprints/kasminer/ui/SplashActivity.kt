@@ -88,7 +88,7 @@ class SplashActivity : ComponentActivity() {
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Text(
-                    "PoPMiner",
+                    "PoPMobile",
                     color = Color(0xFF49EACB),
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,

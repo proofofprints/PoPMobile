@@ -54,12 +54,17 @@ class StratumClient(
         withContext(Dispatchers.IO) {
             try {
                 Log.i(TAG, "Connecting to $host:$port...")
-                socket = Socket(host, port).apply {
-                    keepAlive = true
-                    soTimeout = 300_000 // 5 minute read timeout
-                }
-                writer = PrintWriter(socket!!.getOutputStream(), true)
-                reader = BufferedReader(InputStreamReader(socket!!.getInputStream()))
+                // Use explicit connect with 10s timeout so a refused/unreachable
+                // pool surfaces a quick error instead of blocking for minutes.
+                // Assigning the socket before connect() lets disconnect()
+                // interrupt an in-progress connection attempt.
+                val s = Socket()
+                socket = s
+                s.connect(java.net.InetSocketAddress(host, port), 10_000)
+                s.keepAlive = true
+                s.soTimeout = 300_000 // 5 minute read timeout
+                writer = PrintWriter(s.getOutputStream(), true)
+                reader = BufferedReader(InputStreamReader(s.getInputStream()))
 
                 listener.onConnected()
 
