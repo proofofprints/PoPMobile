@@ -144,7 +144,6 @@ class MainActivity : ComponentActivity() {
         var totalHashes by remember { mutableLongStateOf(0L) }
         var sharesFound by remember { mutableIntStateOf(0) }
         var sharesRejected by remember { mutableIntStateOf(0) }
-        var difficulty by remember { mutableDoubleStateOf(0.0) }
         var isRunning by remember { mutableStateOf(false) }
         var poolConnected by remember { mutableStateOf(false) }
         var poolState by remember { mutableStateOf(MiningService.PoolState.DISCONNECTED) }
@@ -154,6 +153,7 @@ class MainActivity : ComponentActivity() {
         var batteryPercent by remember { mutableIntStateOf(100) }
         var thermalState by remember { mutableStateOf("NORMAL") }
         var activeThreads by remember { mutableIntStateOf(0) }
+        var difficulty by remember { mutableDoubleStateOf(0.0) }
 
         // Update stats periodically
         LaunchedEffect(serviceBound.value) {
@@ -162,6 +162,7 @@ class MainActivity : ComponentActivity() {
                     hashrate = it.hashrate
                     totalHashes = it.totalHashes
                     sharesFound = it.sharesFound
+                    sharesRejected = it.sharesRejected
                     isRunning = it.isRunning
                     poolConnected = it.isPoolConnected
                     poolState = it.poolState
@@ -172,7 +173,6 @@ class MainActivity : ComponentActivity() {
                     thermalState = it.thermalState.name
                     activeThreads = it.activeThreads
                     difficulty = it.currentDifficulty
-                    sharesRejected = it.sharesRejected
                 }
 
                 // Re-read config from prefs so remote PoPManager commands

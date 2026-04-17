@@ -59,7 +59,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     var walletAddress: String = ""
     var workerName: String = "PoPMobile"
     var threadCount: Int = 2
-    var currentDifficulty: Double = 0.0014
+    var currentDifficulty: Double = 0.0014  // Reasonable starting diff for ~40 KH/s phone
 
     // Thermal state exposed to UI
     var cpuTemp: Float = 0f
@@ -570,6 +570,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     }
 
     override fun onNewJob(jobId: String, headerHash: ByteArray, timestamp: Long) {
+        Log.i(TAG, "New job $jobId, applying difficulty=$currentDifficulty")
         LogManager.info("New job received: $jobId")
         val target = miningEngine.setTargetFromDifficulty(currentDifficulty)
         miningEngine.setJob(headerHash, jobId, target, timestamp)
@@ -578,14 +579,16 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
         if (!miningEngine.isRunning && !thermalPaused) {
             miningEngine.start(threadCount)
             activeThreads = threadCount
+            LogManager.info("Mining started ($threadCount threads)")
             updateNotification("Mining...")
         }
     }
 
     override fun onDifficultyChanged(difficulty: Double) {
+        val old = currentDifficulty
         currentDifficulty = difficulty
         Log.i(TAG, "Difficulty updated: $difficulty")
-        LogManager.info("Difficulty set to $difficulty")
+        LogManager.info("Difficulty: $old -> $difficulty")
     }
 
     override fun onShareAccepted() {
@@ -609,8 +612,9 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     // ===== MiningEngine.ShareCallback =====
 
     override fun onShareFound(jobId: String, nonce: Long) {
+        val nonceHex = String.format("%016x", nonce)
         Log.i(TAG, "Share found! Job: $jobId, Nonce: $nonce")
-        LogManager.info("Share found! Job: $jobId")
+        LogManager.info("Share found! Nonce: $nonceHex Job: $jobId")
         stratumClient.submitShare(jobId, nonce)
     }
 
@@ -659,8 +663,8 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     private fun updateNotification(status: String? = null) {
         val thermalInfo = if (cpuTemp > 0) " | ${cpuTemp.toInt()}°C" else ""
         val text = status ?: String.format(
-            "%.2f H/s | %d shares%s",
-            hashrate, sharesFound, thermalInfo
+            "%.2f H/s | A:%d R:%d%s",
+            hashrate, sharesFound, sharesRejected, thermalInfo
         )
         val nm = getSystemService(NotificationManager::class.java)
         nm.notify(NOTIFICATION_ID, createNotification(text))

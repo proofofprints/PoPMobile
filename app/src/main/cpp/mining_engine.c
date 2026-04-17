@@ -292,6 +292,10 @@ void mining_set_job(const uint8_t *header_hash, const char *job_id, const uint8_
 
     LOGI("JOB SET: id=%s timestamp=%llu (0x%llx)", job_id,
          (unsigned long long)timestamp, (unsigned long long)timestamp);
+    LOGI("  target: %02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x",
+         target[0], target[1], target[2], target[3],
+         target[4], target[5], target[6], target[7],
+         target[8], target[9], target[10], target[11]);
 }
 
 double mining_get_hashrate(void) {
