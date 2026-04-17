@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/proofofprints/PoPMobile/security/advisories/new
+    about: Do not open a public issue for security vulnerabilities. Use GitHub's private advisory form, or email support@proofofprints.com. See SECURITY.md.
+  - name: General questions and support
+    url: mailto:support@proofofprints.com
+    about: Not a bug or feature request? Email support@proofofprints.com or check the README.
+  - name: Kaspa network / pool issues
+    url: https://github.com/kaspanet
+    about: Problems with the Kaspa network itself or pool software belong upstream at kaspanet, not here.
+  - name: PoPManager issues
+    url: https://github.com/proofofprints/PoPManager/issues
+    about: Bugs in the PoPManager server itself belong in the PoPManager repo.
