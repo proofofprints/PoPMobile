@@ -1,0 +1,59 @@
+name: Feature request
+description: Suggest an improvement or new feature for PoPMobile.
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Concrete use cases help us prioritise — tell us what problem you're trying to solve, not just what you'd like to see.
+
+        **Before filing**, please [search existing issues](https://github.com/proofofprints/PoPMobile/issues?q=is%3Aissue) to see if someone has already suggested something similar.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: What's annoying, missing, or confusing in the current app?
+      placeholder: |
+        When I use PoPMobile on my tablet, I can't tell at a glance whether…
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How would you like it to work? UI changes, new settings, new behavior, etc. Rough mockups welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you thought about and why you prefer the proposal above
+    validations:
+      required: false
+
+  - type: dropdown
+    id: audience
+    attributes:
+      label: Who benefits?
+      description: Who does this help the most?
+      options:
+        - Solo miners running one phone
+        - PoPManager users with multiple devices
+        - Contributors / developers
+        - Everyone
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Anything else?
+      description: Screenshots, links to similar features in other apps, related issues, etc.
+    validations:
+      required: false

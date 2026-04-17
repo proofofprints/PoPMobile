@@ -1,0 +1,104 @@
+name: Bug report
+description: Something is broken or behaving unexpectedly in PoPMobile.
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. The more detail you provide, the faster we can reproduce and fix the issue.
+
+        **Before filing**, please confirm:
+        - You're running the [latest release](https://github.com/proofofprints/PoPMobile/releases) (check Settings → About)
+        - You've searched [existing issues](https://github.com/proofofprints/PoPMobile/issues?q=is%3Aissue) and this isn't a duplicate
+
+  - type: input
+    id: app-version
+    attributes:
+      label: PoPMobile version
+      description: Shown in Settings → About, or the APK filename (e.g. `v1.0.0`)
+      placeholder: "v1.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: android-version
+    attributes:
+      label: Android version
+      description: Settings → About phone → Android version
+      placeholder: "Android 13"
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device model
+      description: Manufacturer and model (e.g. `Google Pixel 6`, `TCL A3X`, `Samsung Galaxy S21`)
+      placeholder: "TCL A3X"
+    validations:
+      required: true
+
+  - type: input
+    id: pool
+    attributes:
+      label: Pool URL
+      description: The `stratum+tcp://host:port` you're connecting to, if the bug involves mining
+      placeholder: "stratum+tcp://pool.proofofprints.com:5558"
+    validations:
+      required: false
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug. What did you expect to happen? What actually happened?
+      placeholder: |
+        When I tap START MINING with a valid pool URL, the app…
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps we can follow to see the bug ourselves
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: |
+        Open the in-app **Logs** tab and copy the entries around when the bug happened. Redact your wallet address if you'd rather not share it.
+      render: shell
+      placeholder: |
+        14:18:23 [INF] Pool connected successfully
+        14:18:23 [WRN] Share rejected: …
+    validations:
+      required: false
+
+  - type: dropdown
+    id: popmanager
+    attributes:
+      label: PoPManager involved?
+      description: Is this bug related to PoPManager pairing, reporting, or remote commands?
+      options:
+        - No — standalone mining only
+        - Yes — PoPManager is involved
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Anything else?
+      description: Screenshots, video, prior-session context, workarounds you tried, etc.
+    validations:
+      required: false
