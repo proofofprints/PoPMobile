@@ -4,10 +4,14 @@
  *
  * - Target: the app's external files dir (`/Android/data/<pkg>/files/Download/`)
  *   so we don't need the WRITE_EXTERNAL_STORAGE permission on older devices.
- * - Progress: polled via DownloadManager.query() at 500 ms intervals.
- * - Install: handed off to the system installer via an ACTION_VIEW intent
- *   with a FileProvider content:// URI. The OS verifies signature match
- *   and shows its standard "Update existing app?" dialog.
+ * - Progress: polled via DownloadManager.query() at 500 ms intervals for
+ *   the in-app progress bar.
+ * - Install: ultimately fired by InstallReceiver, which listens for
+ *   DownloadManager.ACTION_DOWNLOAD_COMPLETE and therefore works even if
+ *   the app is killed mid-download. The in-app flow also tries to fire
+ *   install when it sees the Complete state — a SharedPreferences
+ *   "pending download ID" field dedupes the two paths so whichever gets
+ *   there first wins.
  *
  * Copyright (c) 2026 Proof of Prints
  */
@@ -42,6 +46,9 @@ class UpdateDownloader(private val context: Context) {
     private val dm: DownloadManager =
         context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
 
+    /** Whether the OS will let us fire an install intent without further prompts. */
+    fun canInstallPackages(): Boolean = context.packageManager.canRequestPackageInstalls()
+
     /**
      * Emits DownloadProgress events until the download succeeds, fails, or
      * the coroutine is cancelled. Safe to collect from a Compose
@@ -50,7 +57,6 @@ class UpdateDownloader(private val context: Context) {
     fun download(update: UpdateInfo): Flow<DownloadProgress> = flow {
         emit(DownloadProgress.Starting)
 
-        // Overwrite any previous partial download with the same asset name.
         val destFile = File(
             context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
             update.apkAssetName
@@ -66,12 +72,14 @@ class UpdateDownloader(private val context: Context) {
             .setMimeType("application/vnd.android.package-archive")
 
         val id = dm.enqueue(request)
+        savePendingId(id)
 
         try {
             while (true) {
                 val query = DownloadManager.Query().setFilterById(id)
                 dm.query(query).use { cursor ->
                     if (cursor == null || !cursor.moveToFirst()) {
+                        clearPendingId()
                         emit(DownloadProgress.Failed("Download lost from DownloadManager"))
                         return@flow
                     }
@@ -86,6 +94,7 @@ class UpdateDownloader(private val context: Context) {
                         }
                         DownloadManager.STATUS_FAILED -> {
                             val reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
+                            clearPendingId()
                             emit(DownloadProgress.Failed("Download failed (reason $reason)"))
                             return@flow
                         }
@@ -101,16 +110,27 @@ class UpdateDownloader(private val context: Context) {
         } catch (e: Exception) {
             Log.w(TAG, "Download cancelled / errored: ${e.message}")
             dm.remove(id)
+            clearPendingId()
             emit(DownloadProgress.Failed(e.message ?: "Cancelled"))
         }
     }.flowOn(Dispatchers.IO)
 
     /**
-     * Fire Android's "Install this APK?" dialog. Requires the user to have
-     * granted REQUEST_INSTALL_PACKAGES for this app (they'll be prompted
-     * the first time).
+     * Fire Android's "Install this APK?" dialog. Caller is responsible for
+     * ensuring canInstallPackages() returns true first — we do not chain
+     * into the Settings screen here, so there's never a stuck UI state.
+     *
+     * Dedupes with InstallReceiver via the PENDING_ID SharedPref.
      */
     fun launchInstall(apkFile: File) {
+        val prefs = context.getSharedPreferences(PrefsKeys.PREFS, Context.MODE_PRIVATE)
+        val pending = prefs.getLong(PrefsKeys.PENDING_ID, -1L)
+        if (pending == -1L) {
+            // The receiver already consumed it, nothing to do.
+            return
+        }
+        prefs.edit().putLong(PrefsKeys.PENDING_ID, -1L).apply()
+
         val authority = "${context.packageName}.fileprovider"
         val uri = FileProvider.getUriForFile(context, authority, apkFile)
         val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -119,6 +139,20 @@ class UpdateDownloader(private val context: Context) {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(intent)
+    }
+
+    private fun savePendingId(id: Long) {
+        context.getSharedPreferences(PrefsKeys.PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putLong(PrefsKeys.PENDING_ID, id)
+            .apply()
+    }
+
+    private fun clearPendingId() {
+        context.getSharedPreferences(PrefsKeys.PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putLong(PrefsKeys.PENDING_ID, -1L)
+            .apply()
     }
 
     companion object {
