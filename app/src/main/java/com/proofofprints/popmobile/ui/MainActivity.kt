@@ -5,7 +5,7 @@
  *
  * Copyright (c) 2026 Proof of Prints
  */
-package com.proofofprints.kasminer.ui
+package com.proofofprints.popmobile.ui
 
 import android.Manifest
 import android.content.ComponentName
@@ -40,10 +40,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import com.proofofprints.kasminer.LogLevel
-import com.proofofprints.kasminer.LogManager
-import com.proofofprints.kasminer.R
-import com.proofofprints.kasminer.service.MiningService
+import com.proofofprints.popmobile.LogLevel
+import com.proofofprints.popmobile.LogManager
+import com.proofofprints.popmobile.R
+import com.proofofprints.popmobile.service.MiningService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -815,10 +815,10 @@ class MainActivity : ComponentActivity() {
                                 popTesting = true
                                 popTestResult = null
                                 scope.launch {
-                                    val reporter = com.proofofprints.kasminer.popmanager
+                                    val reporter = com.proofofprints.popmobile.popmanager
                                         .PoPManagerReporter(this@MainActivity, object :
-                                            com.proofofprints.kasminer.popmanager.PoPManagerReporter.StatsProvider {
-                                            override fun snapshot() = com.proofofprints.kasminer.popmanager
+                                            com.proofofprints.popmobile.popmanager.PoPManagerReporter.StatsProvider {
+                                            override fun snapshot() = com.proofofprints.popmobile.popmanager
                                                 .PoPManagerReporter.TelemetrySnapshot(
                                                 "KAS", "", "", 0.0, 0, 0, 0.0, 0L,
                                                 0f, "normal", 0, false, 0, "stopped"

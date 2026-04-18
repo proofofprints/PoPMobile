@@ -136,7 +136,7 @@ If `keystore.properties` is absent, `assembleRelease` still produces an APK but 
 ```
 app/src/main/
 ├── cpp/                   # Native kHeavyHash + mining loop (C, compiled via NDK)
-├── java/com/proofofprints/kasminer/
+├── java/com/proofofprints/popmobile/
 │   ├── ui/                # Compose UI: dashboard, settings, logs, QR scanner, splash
 │   ├── service/           # Foreground MiningService (pool connection, thermal, lifecycle)
 │   ├── stratum/           # Stratum v1 client

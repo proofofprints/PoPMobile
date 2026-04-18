@@ -4,4 +4,4 @@
 }
 
 # Keep mining engine bridge
--keep class com.proofofprints.kasminer.mining.MiningEngine { *; }
+-keep class com.proofofprints.popmobile.mining.MiningEngine { *; }

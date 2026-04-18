@@ -17,15 +17,19 @@ val keystoreProperties = Properties().apply {
 val hasReleaseKeystore = keystorePropertiesFile.exists()
 
 android {
-    namespace = "com.proofofprints.kasminer"
+    namespace = "com.proofofprints.popmobile"
     compileSdk = 34
 
     defaultConfig {
+        // applicationId intentionally stays on the old namespace so existing
+        // v1.0.x installs upgrade in place — Android uses applicationId as
+        // the install identity. Source tree and JNI now use the popmobile
+        // namespace internally.
         applicationId = "com.proofofprints.kasminer"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")

@@ -3,7 +3,7 @@
  *
  * Copyright (c) 2026 Proof of Prints
  */
-package com.proofofprints.kasminer
+package com.proofofprints.popmobile
 
 import android.app.Application
 

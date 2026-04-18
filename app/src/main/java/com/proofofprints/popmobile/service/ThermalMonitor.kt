@@ -7,7 +7,7 @@
  *
  * Copyright (c) 2026 Proof of Prints
  */
-package com.proofofprints.kasminer.service
+package com.proofofprints.popmobile.service
 
 import android.content.Context
 import android.content.Intent

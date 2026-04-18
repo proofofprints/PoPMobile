@@ -3,7 +3,7 @@
  *
  * Copyright (c) 2026 Proof of Prints
  */
-package com.proofofprints.kasminer.ui
+package com.proofofprints.popmobile.ui
 
 import android.content.Intent
 import android.os.Bundle
@@ -25,7 +25,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.proofofprints.kasminer.R
+import com.proofofprints.popmobile.R
 import kotlinx.coroutines.delay
 
 class SplashActivity : ComponentActivity() {

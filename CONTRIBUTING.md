@@ -34,7 +34,7 @@ The APK ends up at `app/build/outputs/apk/debug/app-debug.apk`. You don't need a
 ```
 app/src/main/
 ├── cpp/                       # Native kHeavyHash + mining loop (C, NDK)
-├── java/com/proofofprints/kasminer/
+├── java/com/proofofprints/popmobile/
 │   ├── ui/                    # Compose UI: dashboard, settings, logs, QR, splash
 │   ├── service/               # Foreground MiningService (lifecycle, thermal)
 │   ├── stratum/               # Stratum v1 client

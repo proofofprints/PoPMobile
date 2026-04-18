@@ -53,27 +53,27 @@ static void native_share_callback(const char *job_id, uint64_t nonce) {
 /* ===== JNI Methods ===== */
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_proofofprints_kasminer_mining_MiningEngine_nativeStart(
+Java_com_proofofprints_popmobile_mining_MiningEngine_nativeStart(
         JNIEnv *env, jobject thiz, jint numThreads) {
     LOGI("nativeStart called with %d threads", numThreads);
     mining_start(numThreads);
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_proofofprints_kasminer_mining_MiningEngine_nativeStop(
+Java_com_proofofprints_popmobile_mining_MiningEngine_nativeStop(
         JNIEnv *env, jobject thiz) {
     LOGI("nativeStop called");
     mining_stop();
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_proofofprints_kasminer_mining_MiningEngine_nativeIsRunning(
+Java_com_proofofprints_popmobile_mining_MiningEngine_nativeIsRunning(
         JNIEnv *env, jobject thiz) {
     return mining_is_running() ? JNI_TRUE : JNI_FALSE;
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_proofofprints_kasminer_mining_MiningEngine_nativeSetJob(
+Java_com_proofofprints_popmobile_mining_MiningEngine_nativeSetJob(
         JNIEnv *env, jobject thiz, jbyteArray headerHash, jstring jobId, jbyteArray target, jlong timestamp) {
 
     jbyte *header = env->GetByteArrayElements(headerHash, nullptr);
@@ -88,25 +88,25 @@ Java_com_proofofprints_kasminer_mining_MiningEngine_nativeSetJob(
 }
 
 extern "C" JNIEXPORT jdouble JNICALL
-Java_com_proofofprints_kasminer_mining_MiningEngine_nativeGetHashrate(
+Java_com_proofofprints_popmobile_mining_MiningEngine_nativeGetHashrate(
         JNIEnv *env, jobject thiz) {
     return mining_get_hashrate();
 }
 
 extern "C" JNIEXPORT jlong JNICALL
-Java_com_proofofprints_kasminer_mining_MiningEngine_nativeGetTotalHashes(
+Java_com_proofofprints_popmobile_mining_MiningEngine_nativeGetTotalHashes(
         JNIEnv *env, jobject thiz) {
     return (jlong)mining_get_total_hashes();
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_proofofprints_kasminer_mining_MiningEngine_nativeGetSharesFound(
+Java_com_proofofprints_popmobile_mining_MiningEngine_nativeGetSharesFound(
         JNIEnv *env, jobject thiz) {
     return (jint)mining_get_shares_found();
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_proofofprints_kasminer_mining_MiningEngine_nativeSetShareCallback(
+Java_com_proofofprints_popmobile_mining_MiningEngine_nativeSetShareCallback(
         JNIEnv *env, jobject thiz, jobject callback) {
 
     /* Clean up previous global ref */
@@ -126,19 +126,19 @@ Java_com_proofofprints_kasminer_mining_MiningEngine_nativeSetShareCallback(
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_proofofprints_kasminer_mining_MiningEngine_nativeGetSharesRejected(
+Java_com_proofofprints_popmobile_mining_MiningEngine_nativeGetSharesRejected(
         JNIEnv *env, jobject thiz) {
     return (jint)mining_get_shares_rejected();
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_proofofprints_kasminer_mining_MiningEngine_nativeIncrementRejected(
+Java_com_proofofprints_popmobile_mining_MiningEngine_nativeIncrementRejected(
         JNIEnv *env, jobject thiz) {
     mining_increment_rejected();
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_proofofprints_kasminer_mining_MiningEngine_nativeSetTargetFromDifficulty(
+Java_com_proofofprints_popmobile_mining_MiningEngine_nativeSetTargetFromDifficulty(
         JNIEnv *env, jobject thiz, jdouble difficulty, jbyteArray targetOut) {
 
     uint8_t target[32];
@@ -148,7 +148,7 @@ Java_com_proofofprints_kasminer_mining_MiningEngine_nativeSetTargetFromDifficult
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_proofofprints_kasminer_mining_MiningEngine_nativeSetExtranonce(
+Java_com_proofofprints_popmobile_mining_MiningEngine_nativeSetExtranonce(
         JNIEnv *env, jobject thiz, jlong extranoncePrefix, jint extranonce2Bits) {
     LOGI("nativeSetExtranonce: prefix=0x%016llx, en2bits=%d",
          (unsigned long long)extranoncePrefix, extranonce2Bits);
