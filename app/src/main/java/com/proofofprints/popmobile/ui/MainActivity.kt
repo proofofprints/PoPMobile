@@ -152,11 +152,31 @@ class MainActivity : ComponentActivity() {
         var lastCheckedMs by remember { mutableStateOf(updateChecker.lastCheckTimestampMs()) }
         val updateScope = rememberCoroutineScope()
 
-        // One throttled check on first composition. No-op if checked in the
-        // last 24h or if the user already dismissed this version.
+        // Throttled check on first composition and on every ON_RESUME. The
+        // 24 h throttle inside UpdateChecker means multiple resumes within a
+        // day make no extra network calls; the observer exists so that users
+        // who keep the app open for days still see new releases without
+        // force-quitting.
         LaunchedEffect(Unit) {
             availableUpdate = updateChecker.checkForUpdate(force = false)
             lastCheckedMs = updateChecker.lastCheckTimestampMs()
+        }
+
+        val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+        DisposableEffect(lifecycleOwner) {
+            val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                    updateScope.launch {
+                        val found = updateChecker.checkForUpdate(force = false)
+                        lastCheckedMs = updateChecker.lastCheckTimestampMs()
+                        if (found != null && availableUpdate == null) {
+                            availableUpdate = found
+                        }
+                    }
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
         }
 
         // Live stats
