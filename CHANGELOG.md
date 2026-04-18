@@ -3,9 +3,13 @@
 All notable changes to PoPMobile are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.7] — 2026-04-18
+## [1.0.9] — 2026-04-18
 ### Fixed
-- **Tapping Download in the update dialog no longer crashes release builds.** R8 minification was stripping methods Compose Material3's `LinearProgressIndicator` expects at runtime (`KeyframesSpec$KeyframesSpecConfig.at(Object, Int)`), producing a `NoSuchMethodError` the moment the download progress bar tried to draw. Debug builds were unaffected because they skip R8. Disabled minification for release — saves nothing meaningful on a ~2 MB APK and sidesteps the whole class of Compose-vs-R8 issues.
+- **Actually fixed the Download-button crash** (v1.0.7 misdiagnosed it). The `NoSuchMethodError` on `KeyframesSpec.at(Object, Int)` wasn't from R8 after all — it was a real version mismatch between `material3` and `animation-core` inside our pinned `compose-bom`. Material3's `LinearProgressIndicator` calls an animation-core method that didn't ship in the version bundled at runtime. Replaced the Material3 indicator with a plain `Box` progress bar we draw ourselves, sidestepping the entire `KeyframesSpec` code path.
+
+## [1.0.7] — 2026-04-18
+### Attempted fix (did not fully work)
+- Disabled R8 minification for release in the belief that R8 was stripping a Compose method. The NoSuchMethodError on `KeyframesSpec.at(Object, Int)` persisted even without minification, revealing the real cause was a library version mismatch rather than shrinking. Kept the disabled minification — it's still the right default for a ~2 MB APK — but the actual Download-button fix landed in v1.0.9.
 
 ## [1.0.6] — 2026-04-17
 ### Fixed
@@ -58,6 +62,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Mining log retaining the last four hours of stratum + share events.
 - PoPManager pairing with per-device API keys, telemetry every 30 s, and remote commands (`set_config`, `set_threads`, `start`, `stop`, `restart`) applied and acknowledged.
 
+[1.0.9]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.9
 [1.0.7]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.7
 [1.0.6]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.6
 [1.0.5]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.5
