@@ -3,6 +3,10 @@
 All notable changes to PoPMobile are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.7] — 2026-04-18
+### Fixed
+- **Tapping Download in the update dialog no longer crashes release builds.** R8 minification was stripping methods Compose Material3's `LinearProgressIndicator` expects at runtime (`KeyframesSpec$KeyframesSpecConfig.at(Object, Int)`), producing a `NoSuchMethodError` the moment the download progress bar tried to draw. Debug builds were unaffected because they skip R8. Disabled minification for release — saves nothing meaningful on a ~2 MB APK and sidesteps the whole class of Compose-vs-R8 issues.
+
 ## [1.0.6] — 2026-04-17
 ### Fixed
 - **Tapping "Open Settings" on the install-permission prompt no longer marks the update as dismissed.** In v1.0.4/v1.0.5 the Settings detour closed the dialog through the same code path as "Later", which recorded the version as declined — so after granting the permission and returning, **Check for updates** would report "You're on the latest version" even though an update was pending. The dialog now separates "close without declining" (Open Settings, successful install, retry) from "user declined this version" (Later, Cancel).
@@ -54,6 +58,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Mining log retaining the last four hours of stratum + share events.
 - PoPManager pairing with per-device API keys, telemetry every 30 s, and remote commands (`set_config`, `set_threads`, `start`, `stop`, `restart`) applied and acknowledged.
 
+[1.0.7]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.7
 [1.0.6]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.6
 [1.0.5]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.5
 [1.0.4]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.4
