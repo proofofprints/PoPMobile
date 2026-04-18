@@ -3,6 +3,10 @@
 All notable changes to PoPMobile are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.10] — 2026-04-18
+### Notes
+- Pipeline-verification release — no code changes. Exists so devices on v1.0.9 (the first build with the non-crashing progress bar) can finally exercise the in-app update flow end-to-end against a newer release.
+
 ## [1.0.9] — 2026-04-18
 ### Fixed
 - **Actually fixed the Download-button crash** (v1.0.7 misdiagnosed it). The `NoSuchMethodError` on `KeyframesSpec.at(Object, Int)` wasn't from R8 after all — it was a real version mismatch between `material3` and `animation-core` inside our pinned `compose-bom`. Material3's `LinearProgressIndicator` calls an animation-core method that didn't ship in the version bundled at runtime. Replaced the Material3 indicator with a plain `Box` progress bar we draw ourselves, sidestepping the entire `KeyframesSpec` code path.
@@ -62,6 +66,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Mining log retaining the last four hours of stratum + share events.
 - PoPManager pairing with per-device API keys, telemetry every 30 s, and remote commands (`set_config`, `set_threads`, `start`, `stop`, `restart`) applied and acknowledged.
 
+[1.0.10]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.10
 [1.0.9]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.9
 [1.0.7]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.7
 [1.0.6]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.6
