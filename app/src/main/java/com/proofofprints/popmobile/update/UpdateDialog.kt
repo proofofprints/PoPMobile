@@ -21,6 +21,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -214,18 +215,22 @@ private fun DownloadingBody(progress: DownloadProgress, update: UpdateInfo) {
             "Failed" to 0f
     }
 
-    if (fraction > 0f && progress !is DownloadProgress.Complete) {
-        LinearProgressIndicator(
-            progress = fraction,
-            modifier = Modifier.fillMaxWidth(),
-            color = Color(0xFF49EACB),
-            trackColor = Color(0xFF2A2A40)
-        )
-    } else {
-        LinearProgressIndicator(
-            modifier = Modifier.fillMaxWidth(),
-            color = Color(0xFF49EACB),
-            trackColor = Color(0xFF2A2A40)
+    // Plain Box-based progress bar. Material3's LinearProgressIndicator
+    // crashed on some compose-bom versions because its internal keyframe
+    // animation called KeyframesSpec.at(Object, Int) against an
+    // animation-core that didn't ship that overload. Rolling our own
+    // sidesteps the entire class of mismatch.
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(6.dp)
+            .background(Color(0xFF2A2A40), RoundedCornerShape(3.dp))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(fraction = fraction.coerceIn(0f, 1f))
+                .background(Color(0xFF49EACB), RoundedCornerShape(3.dp))
         )
     }
     Spacer(Modifier.height(10.dp))
