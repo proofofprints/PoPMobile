@@ -237,7 +237,15 @@ class MainActivity : ComponentActivity() {
         availableUpdate?.let { update ->
             UpdateDialog(
                 update = update,
+                // Close-without-decline paths (Open Settings detour, successful
+                // install, retry from Failed, backdrop tap during Downloading).
                 onDismiss = {
+                    availableUpdate = null
+                },
+                // Explicit user decline (Later, Cancel, backdrop tap on Prompt/
+                // NeedPermission/Failed). We remember this version so we don't
+                // keep prompting about it on every ON_RESUME.
+                onDecline = {
                     updateChecker.dismiss(update.versionName)
                     availableUpdate = null
                 }

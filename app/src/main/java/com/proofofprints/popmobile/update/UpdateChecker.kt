@@ -44,8 +44,10 @@ class UpdateChecker(context: Context) {
      * Query GitHub for the latest release and return an UpdateInfo if it's
      * newer than the currently installed build; null otherwise.
      *
-     * @param force bypass the 24-h throttle. Pass true when the user taps
-     *              "Check for updates" in Settings.
+     * @param force bypass the 24-h throttle AND the dismissed-version list.
+     *              Pass true when the user taps "Check for updates" in
+     *              Settings — they explicitly asked to see any update,
+     *              including one they previously told us to be quiet about.
      */
     suspend fun checkForUpdate(force: Boolean = false): UpdateInfo? =
         withContext(Dispatchers.IO) {
@@ -61,7 +63,7 @@ class UpdateChecker(context: Context) {
                     Log.i(TAG, "Up to date (installed=${BuildConfig.VERSION_NAME}, latest=${release.versionName})")
                     return@withContext null
                 }
-                if (wasDismissed(release.versionName)) {
+                if (!force && wasDismissed(release.versionName)) {
                     Log.i(TAG, "User already dismissed ${release.versionName}")
                     return@withContext null
                 }
