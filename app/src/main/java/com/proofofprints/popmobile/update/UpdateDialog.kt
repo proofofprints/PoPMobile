@@ -2,6 +2,17 @@
  * "Update available" dialog — shows release notes, lets the user download
  * + install the new APK without leaving the app.
  *
+ * Flow:
+ *   1. Prompt: release notes + Later / Download
+ *   2. If install permission missing → NeedPermission phase with a clear
+ *      "Open Settings" CTA (no download kicks off until permission
+ *      granted, so we can never get stuck with a cached APK and no way
+ *      to install it)
+ *   3. Downloading: linear progress bar
+ *   4. Complete: hand off to the system installer via UpdateDownloader.
+ *      InstallReceiver is the cold-boot safety net if the app is killed
+ *      mid-download.
+ *
  * Copyright (c) 2026 Proof of Prints
  */
 package com.proofofprints.popmobile.update
@@ -9,7 +20,6 @@ package com.proofofprints.popmobile.update
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.provider.Settings
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -27,7 +37,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.flow.collectLatest
 
-private enum class Phase { Prompt, Downloading, Failed }
+private enum class Phase { Prompt, NeedPermission, Downloading, Failed }
 
 @Composable
 fun UpdateDialog(
@@ -48,10 +58,9 @@ fun UpdateDialog(
             progress = p
             when (p) {
                 is DownloadProgress.Complete -> {
-                    ensureCanInstallOrPrompt(context) {
-                        downloader.launchInstall(p.file)
-                        onDismiss()
-                    }
+                    // Best-effort in-app install. Receiver dedupes if it fires first.
+                    downloader.launchInstall(p.file)
+                    onDismiss()
                 }
                 is DownloadProgress.Failed -> {
                     failReason = p.reason
@@ -63,7 +72,10 @@ fun UpdateDialog(
     }
 
     Dialog(onDismissRequest = {
-        if (phase == Phase.Prompt) onDismiss()
+        // Only allow back/outside-tap dismiss when we're not mid-download.
+        if (phase == Phase.Prompt || phase == Phase.NeedPermission || phase == Phase.Failed) {
+            onDismiss()
+        }
     }) {
         Surface(
             shape = RoundedCornerShape(16.dp),
@@ -88,9 +100,24 @@ fun UpdateDialog(
 
                 when (phase) {
                     Phase.Prompt -> PromptBody(update, onLater = onDismiss) {
-                        phase = Phase.Downloading
-                        startTrigger++
+                        if (downloader.canInstallPackages()) {
+                            phase = Phase.Downloading
+                            startTrigger++
+                        } else {
+                            phase = Phase.NeedPermission
+                        }
                     }
+                    Phase.NeedPermission -> NeedPermissionBody(
+                        onCancel = onDismiss,
+                        onOpenSettings = {
+                            openInstallPermissionSettings(context)
+                            // Leave the dialog dismissed so the user isn't
+                            // greeted by a stuck "Download" button on return.
+                            // They can re-open via Check for updates once
+                            // permission is granted.
+                            onDismiss()
+                        }
+                    )
                     Phase.Downloading -> DownloadingBody(progress, update)
                     Phase.Failed -> FailedBody(failReason ?: "Unknown", onClose = onDismiss) {
                         phase = Phase.Downloading
@@ -137,6 +164,34 @@ private fun PromptBody(update: UpdateInfo, onLater: () -> Unit, onDownload: () -
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF49EACB))
         ) {
             Text("Download", color = Color.Black, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun NeedPermissionBody(onCancel: () -> Unit, onOpenSettings: () -> Unit) {
+    Text(
+        "Android requires explicit permission to install apps from PoPMobile. " +
+            "Tap Open Settings, enable \"Allow from this source\", then come " +
+            "back and tap Check for updates again.",
+        color = Color(0xFFCCCCCC),
+        fontSize = 13.sp,
+        fontFamily = FontFamily.Monospace
+    )
+    Spacer(Modifier.height(16.dp))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End
+    ) {
+        TextButton(onClick = onCancel) {
+            Text("Cancel", color = Color.Gray, fontFamily = FontFamily.Monospace)
+        }
+        Spacer(Modifier.width(8.dp))
+        Button(
+            onClick = onOpenSettings,
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF49EACB))
+        ) {
+            Text("Open Settings", color = Color.Black, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -201,19 +256,7 @@ private fun FailedBody(reason: String, onClose: () -> Unit, onRetry: () -> Unit)
     }
 }
 
-/**
- * Before launching the install intent, make sure the OS will actually allow
- * it. On Android 8+ users must grant "Install unknown apps" per-source
- * app; we route them to the settings screen once, then they can accept
- * every future update directly.
- */
-private fun ensureCanInstallOrPrompt(context: Context, proceed: () -> Unit) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
-        context.packageManager.canRequestPackageInstalls()
-    ) {
-        proceed()
-        return
-    }
+private fun openInstallPermissionSettings(context: Context) {
     val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
         .setData(Uri.parse("package:${context.packageName}"))
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

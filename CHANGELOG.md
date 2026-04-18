@@ -3,6 +3,11 @@
 All notable changes to PoPMobile are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] — 2026-04-17
+### Fixed
+- In-app update flow got stuck when the user hadn't yet granted "Install unknown apps" permission — the Settings screen would open but our dialog had no way to resume afterward. Now we **pre-check** the permission before kicking off the download and, if missing, show a clear "Open Settings" explainer that cleanly closes the dialog so the user can retry cleanly after granting.
+- Install intent is now also fired by a manifest-registered `BroadcastReceiver` listening for `DownloadManager.ACTION_DOWNLOAD_COMPLETE`, so the install dialog still appears even if the app was killed during the download. The in-app flow and the receiver dedupe via a shared pending-download-id SharedPref — whichever path gets there first consumes the trigger.
+
 ## [1.0.3] — 2026-04-17
 ### Added
 - `CHANGELOG.md` to record release history outside the GitHub Releases page.
@@ -37,6 +42,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Mining log retaining the last four hours of stratum + share events.
 - PoPManager pairing with per-device API keys, telemetry every 30 s, and remote commands (`set_config`, `set_threads`, `start`, `stop`, `restart`) applied and acknowledged.
 
+[1.0.4]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.4
 [1.0.3]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.3
 [1.0.2]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.2
 [1.0.1]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.1
