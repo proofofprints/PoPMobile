@@ -40,10 +40,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.proofofprints.popmobile.BuildConfig
 import com.proofofprints.popmobile.LogLevel
 import com.proofofprints.popmobile.LogManager
 import com.proofofprints.popmobile.R
 import com.proofofprints.popmobile.service.MiningService
+import com.proofofprints.popmobile.update.UpdateChecker
+import com.proofofprints.popmobile.update.UpdateDialog
+import com.proofofprints.popmobile.update.UpdateInfo
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -139,6 +143,20 @@ class MainActivity : ComponentActivity() {
         var showLogs by remember { mutableStateOf(false) }
         var showAbout by remember { mutableStateOf(false) }
 
+        // Update checker
+        val appContext = this@MainActivity.applicationContext
+        val updateChecker = remember { UpdateChecker(appContext) }
+        var availableUpdate by remember { mutableStateOf<UpdateInfo?>(null) }
+        var checkingForUpdate by remember { mutableStateOf(false) }
+        var updateCheckResult by remember { mutableStateOf<String?>(null) }
+        val updateScope = rememberCoroutineScope()
+
+        // One throttled check on first composition. No-op if checked in the
+        // last 24h or if the user already dismissed this version.
+        LaunchedEffect(Unit) {
+            availableUpdate = updateChecker.checkForUpdate(force = false)
+        }
+
         // Live stats
         var hashrate by remember { mutableDoubleStateOf(0.0) }
         var totalHashes by remember { mutableLongStateOf(0L) }
@@ -191,6 +209,17 @@ class MainActivity : ComponentActivity() {
 
                 delay(1000)
             }
+        }
+
+        // Render the update dialog over everything when an update is available.
+        availableUpdate?.let { update ->
+            UpdateDialog(
+                update = update,
+                onDismiss = {
+                    updateChecker.dismiss(update.versionName)
+                    availableUpdate = null
+                }
+            )
         }
 
         Scaffold(
@@ -284,7 +313,24 @@ class MainActivity : ComponentActivity() {
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     if (showAbout) {
-                        AboutPanel()
+                        AboutPanel(
+                            checking = checkingForUpdate,
+                            resultMessage = updateCheckResult,
+                            onCheckForUpdate = {
+                                checkingForUpdate = true
+                                updateCheckResult = null
+                                updateScope.launch {
+                                    val found = updateChecker.checkForUpdate(force = true)
+                                    checkingForUpdate = false
+                                    if (found != null) {
+                                        availableUpdate = found
+                                        updateCheckResult = null
+                                    } else {
+                                        updateCheckResult = "You're on the latest version."
+                                    }
+                                }
+                            }
+                        )
                     } else if (showLogs) {
                         LogsPanel()
                     } else {
@@ -1167,7 +1213,11 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun AboutPanel() {
+    fun AboutPanel(
+        checking: Boolean = false,
+        resultMessage: String? = null,
+        onCheckForUpdate: () -> Unit = {}
+    ) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
@@ -1196,11 +1246,29 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.size(80.dp)
                 )
                 Text(
-                    "v1.0.0",
+                    "v${BuildConfig.VERSION_NAME}",
                     color = Color.Gray,
                     fontSize = 14.sp,
                     fontFamily = FontFamily.Monospace
                 )
+                OutlinedButton(
+                    onClick = onCheckForUpdate,
+                    enabled = !checking,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF49EACB))
+                ) {
+                    Text(
+                        if (checking) "Checking..." else "Check for updates",
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+                if (resultMessage != null) {
+                    Text(
+                        resultMessage,
+                        color = Color(0xFF49EACB),
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
                 Divider(
                     color = Color(0xFF333333),
                     thickness = 1.dp,
