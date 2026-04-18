@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!--
+        Share downloaded update APKs with the system package installer.
+        Maps to Context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS).
+    -->
+    <external-files-path
+        name="updates"
+        path="Download/" />
+</paths>
