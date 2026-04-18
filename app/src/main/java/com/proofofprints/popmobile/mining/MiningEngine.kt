@@ -3,7 +3,7 @@
  *
  * Copyright (c) 2026 Proof of Prints
  */
-package com.proofofprints.kasminer.mining
+package com.proofofprints.popmobile.mining
 
 import android.util.Log
 
@@ -13,7 +13,7 @@ class MiningEngine {
         private const val TAG = "MiningEngine"
 
         init {
-            System.loadLibrary("kasminer")
+            System.loadLibrary("popmobile")
             Log.i(TAG, "Native library loaded")
         }
     }

@@ -13,7 +13,7 @@
  *
  * Copyright (c) 2026 Proof of Prints
  */
-package com.proofofprints.kasminer.popmanager
+package com.proofofprints.popmobile.popmanager
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -22,7 +22,7 @@ import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
-import com.proofofprints.kasminer.LogManager
+import com.proofofprints.popmobile.LogManager
 import kotlinx.coroutines.*
 import java.io.BufferedReader
 import java.io.InputStreamReader

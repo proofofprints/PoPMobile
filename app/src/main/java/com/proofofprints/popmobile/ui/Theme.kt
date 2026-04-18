@@ -3,7 +3,7 @@
  *
  * Copyright (c) 2026 Proof of Prints
  */
-package com.proofofprints.kasminer.ui
+package com.proofofprints.popmobile.ui
 
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable

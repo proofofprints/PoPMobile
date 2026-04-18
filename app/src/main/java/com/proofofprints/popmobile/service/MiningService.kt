@@ -6,7 +6,7 @@
  *
  * Copyright (c) 2026 Proof of Prints
  */
-package com.proofofprints.kasminer.service
+package com.proofofprints.popmobile.service
 
 import android.app.*
 import android.content.Context
@@ -17,11 +17,11 @@ import android.os.IBinder
 import android.net.wifi.WifiManager
 import android.os.PowerManager
 import android.util.Log
-import com.proofofprints.kasminer.LogManager
-import com.proofofprints.kasminer.mining.MiningEngine
-import com.proofofprints.kasminer.popmanager.PoPManagerReporter
-import com.proofofprints.kasminer.stratum.StratumClient
-import com.proofofprints.kasminer.ui.MainActivity
+import com.proofofprints.popmobile.LogManager
+import com.proofofprints.popmobile.mining.MiningEngine
+import com.proofofprints.popmobile.popmanager.PoPManagerReporter
+import com.proofofprints.popmobile.stratum.StratumClient
+import com.proofofprints.popmobile.ui.MainActivity
 import kotlinx.coroutines.*
 
 class MiningService : Service(), StratumClient.StratumListener, MiningEngine.ShareCallback {
@@ -31,9 +31,9 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
         private const val NOTIFICATION_ID = 1
         private const val CHANNEL_ID = "kas_mining_channel"
 
-        const val ACTION_START = "com.proofofprints.kasminer.START"
-        const val ACTION_STOP = "com.proofofprints.kasminer.STOP"
-        const val ACTION_ENSURE_RUNNING = "com.proofofprints.kasminer.ENSURE_RUNNING"
+        const val ACTION_START = "com.proofofprints.popmobile.START"
+        const val ACTION_STOP = "com.proofofprints.popmobile.STOP"
+        const val ACTION_ENSURE_RUNNING = "com.proofofprints.popmobile.ENSURE_RUNNING"
     }
 
     inner class MiningBinder : Binder() {

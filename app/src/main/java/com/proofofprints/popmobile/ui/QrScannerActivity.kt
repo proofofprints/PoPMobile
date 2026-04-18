@@ -4,13 +4,13 @@
  *
  * Copyright (c) 2026 Proof of Prints
  */
-package com.proofofprints.kasminer.ui
+package com.proofofprints.popmobile.ui
 
 import android.app.Activity
 import android.os.Bundle
 import com.journeyapps.barcodescanner.CaptureManager
 import com.journeyapps.barcodescanner.DecoratedBarcodeView
-import com.proofofprints.kasminer.R
+import com.proofofprints.popmobile.R
 
 class QrScannerActivity : Activity() {
 

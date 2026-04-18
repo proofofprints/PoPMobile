@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22.1)
-project("kasminer" C CXX)
+project("popmobile" C CXX)
 
 # Optimization flags
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -Wall")
@@ -12,14 +12,14 @@ if(${ANDROID_ABI} STREQUAL "armeabi-v7a")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=neon")
 endif()
 
-add_library(kasminer SHARED
+add_library(popmobile SHARED
     keccak.c
     kheavyhash.c
     mining_engine.c
     jni_bridge.cpp
 )
 
-target_include_directories(kasminer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(popmobile PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 find_library(log-lib log)
-target_link_libraries(kasminer ${log-lib})
+target_link_libraries(popmobile ${log-lib})

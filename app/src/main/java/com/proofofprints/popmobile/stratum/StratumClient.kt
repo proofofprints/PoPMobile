@@ -6,10 +6,10 @@
  *
  * Copyright (c) 2026 Proof of Prints
  */
-package com.proofofprints.kasminer.stratum
+package com.proofofprints.popmobile.stratum
 
 import android.util.Log
-import com.proofofprints.kasminer.LogManager
+import com.proofofprints.popmobile.LogManager
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
