@@ -3,6 +3,13 @@
 All notable changes to PoPMobile are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5] — 2026-04-17
+### Added
+- Update check now also runs on each `ON_RESUME` (when the app returns to the foreground), not only on cold launch. The 24-hour throttle inside `UpdateChecker` still applies, so keeping the app open for days no longer hides new releases behind a force-quit.
+
+### Notes
+- Primarily a pipeline-verification release after v1.0.4's install-flow fixes — a device on v1.0.4 should be offered this build through the in-app updater.
+
 ## [1.0.4] — 2026-04-17
 ### Fixed
 - In-app update flow got stuck when the user hadn't yet granted "Install unknown apps" permission — the Settings screen would open but our dialog had no way to resume afterward. Now we **pre-check** the permission before kicking off the download and, if missing, show a clear "Open Settings" explainer that cleanly closes the dialog so the user can retry cleanly after granting.
@@ -42,6 +49,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Mining log retaining the last four hours of stratum + share events.
 - PoPManager pairing with per-device API keys, telemetry every 30 s, and remote commands (`set_config`, `set_threads`, `start`, `stop`, `restart`) applied and acknowledged.
 
+[1.0.5]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.5
 [1.0.4]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.4
 [1.0.3]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.3
 [1.0.2]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.2
