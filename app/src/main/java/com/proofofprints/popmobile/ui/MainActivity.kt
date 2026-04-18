@@ -149,12 +149,14 @@ class MainActivity : ComponentActivity() {
         var availableUpdate by remember { mutableStateOf<UpdateInfo?>(null) }
         var checkingForUpdate by remember { mutableStateOf(false) }
         var updateCheckResult by remember { mutableStateOf<String?>(null) }
+        var lastCheckedMs by remember { mutableStateOf(updateChecker.lastCheckTimestampMs()) }
         val updateScope = rememberCoroutineScope()
 
         // One throttled check on first composition. No-op if checked in the
         // last 24h or if the user already dismissed this version.
         LaunchedEffect(Unit) {
             availableUpdate = updateChecker.checkForUpdate(force = false)
+            lastCheckedMs = updateChecker.lastCheckTimestampMs()
         }
 
         // Live stats
@@ -316,12 +318,14 @@ class MainActivity : ComponentActivity() {
                         AboutPanel(
                             checking = checkingForUpdate,
                             resultMessage = updateCheckResult,
+                            lastCheckedMs = lastCheckedMs,
                             onCheckForUpdate = {
                                 checkingForUpdate = true
                                 updateCheckResult = null
                                 updateScope.launch {
                                     val found = updateChecker.checkForUpdate(force = true)
                                     checkingForUpdate = false
+                                    lastCheckedMs = updateChecker.lastCheckTimestampMs()
                                     if (found != null) {
                                         availableUpdate = found
                                         updateCheckResult = null
@@ -1156,6 +1160,20 @@ class MainActivity : ComponentActivity() {
         else -> count.toString()
     }
 
+    private fun formatRelativeTime(epochMs: Long?): String {
+        if (epochMs == null) return "never"
+        val diff = System.currentTimeMillis() - epochMs
+        if (diff < 0) return "just now"
+        val sec = diff / 1000
+        if (sec < 60) return "just now"
+        val min = sec / 60
+        if (min < 60) return "$min min ago"
+        val hr = min / 60
+        if (hr < 24) return "$hr hr ago"
+        val days = hr / 24
+        return "$days d ago"
+    }
+
     @Composable
     fun LogsPanel() {
         val logs = LogManager.entries
@@ -1216,6 +1234,7 @@ class MainActivity : ComponentActivity() {
     fun AboutPanel(
         checking: Boolean = false,
         resultMessage: String? = null,
+        lastCheckedMs: Long? = null,
         onCheckForUpdate: () -> Unit = {}
     ) {
         Card(
@@ -1261,6 +1280,12 @@ class MainActivity : ComponentActivity() {
                         fontFamily = FontFamily.Monospace
                     )
                 }
+                Text(
+                    "Last checked: ${formatRelativeTime(lastCheckedMs)}",
+                    color = Color.Gray,
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace
+                )
                 if (resultMessage != null) {
                     Text(
                         resultMessage,

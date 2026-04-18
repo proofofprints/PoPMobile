@@ -78,6 +78,16 @@ class UpdateChecker(context: Context) {
         prefs.edit().putString(KEY_DISMISSED_VERSION, versionName).apply()
     }
 
+    /**
+     * Epoch-ms of the last successful (or attempted) GitHub call, or null
+     * if we've never checked. Used by the About panel to show "Last checked
+     * X ago".
+     */
+    fun lastCheckTimestampMs(): Long? {
+        val v = prefs.getLong(KEY_LAST_CHECK, 0L)
+        return if (v == 0L) null else v
+    }
+
     private fun wasDismissed(versionName: String): Boolean {
         val dismissed = prefs.getString(KEY_DISMISSED_VERSION, null) ?: return false
         // Only honour the dismissal if the dismissed version is ≥ this one,
