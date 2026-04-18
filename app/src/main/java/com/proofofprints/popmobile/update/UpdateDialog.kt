@@ -43,6 +43,7 @@ private enum class Phase { Prompt, NeedPermission, Downloading, Failed }
 fun UpdateDialog(
     update: UpdateInfo,
     onDismiss: () -> Unit,
+    onDecline: () -> Unit = onDismiss,
 ) {
     val context = LocalContext.current
     val downloader = remember { UpdateDownloader(context) }
@@ -73,8 +74,9 @@ fun UpdateDialog(
 
     Dialog(onDismissRequest = {
         // Only allow back/outside-tap dismiss when we're not mid-download.
+        // Treat it as a "decline" so we don't nag about this version again.
         if (phase == Phase.Prompt || phase == Phase.NeedPermission || phase == Phase.Failed) {
-            onDismiss()
+            onDecline()
         }
     }) {
         Surface(
@@ -99,7 +101,7 @@ fun UpdateDialog(
                 Spacer(Modifier.height(12.dp))
 
                 when (phase) {
-                    Phase.Prompt -> PromptBody(update, onLater = onDismiss) {
+                    Phase.Prompt -> PromptBody(update, onLater = onDecline) {
                         if (downloader.canInstallPackages()) {
                             phase = Phase.Downloading
                             startTrigger++
@@ -108,13 +110,13 @@ fun UpdateDialog(
                         }
                     }
                     Phase.NeedPermission -> NeedPermissionBody(
-                        onCancel = onDismiss,
+                        onCancel = onDecline,
                         onOpenSettings = {
                             openInstallPermissionSettings(context)
-                            // Leave the dialog dismissed so the user isn't
-                            // greeted by a stuck "Download" button on return.
-                            // They can re-open via Check for updates once
-                            // permission is granted.
+                            // Close the dialog WITHOUT marking this version as
+                            // dismissed — the user said yes, they just have to
+                            // grant the permission first. They'll tap Check
+                            // for updates again after granting.
                             onDismiss()
                         }
                     )

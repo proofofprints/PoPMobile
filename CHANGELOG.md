@@ -3,6 +3,11 @@
 All notable changes to PoPMobile are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.6] — 2026-04-17
+### Fixed
+- **Tapping "Open Settings" on the install-permission prompt no longer marks the update as dismissed.** In v1.0.4/v1.0.5 the Settings detour closed the dialog through the same code path as "Later", which recorded the version as declined — so after granting the permission and returning, **Check for updates** would report "You're on the latest version" even though an update was pending. The dialog now separates "close without declining" (Open Settings, successful install, retry) from "user declined this version" (Later, Cancel).
+- `Check for updates` (manual, `force = true`) now bypasses the dismissed-versions list as well as the 24-hour throttle. If you explicitly ask, we always show you what's available.
+
 ## [1.0.5] — 2026-04-17
 ### Added
 - Update check now also runs on each `ON_RESUME` (when the app returns to the foreground), not only on cold launch. The 24-hour throttle inside `UpdateChecker` still applies, so keeping the app open for days no longer hides new releases behind a force-quit.
@@ -49,6 +54,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Mining log retaining the last four hours of stratum + share events.
 - PoPManager pairing with per-device API keys, telemetry every 30 s, and remote commands (`set_config`, `set_threads`, `start`, `stop`, `restart`) applied and acknowledged.
 
+[1.0.6]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.6
 [1.0.5]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.5
 [1.0.4]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.4
 [1.0.3]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.3
