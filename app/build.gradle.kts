@@ -28,8 +28,8 @@ android {
         applicationId = "com.proofofprints.kasminer"
         minSdk = 26
         targetSdk = 34
-        versionCode = 7
-        versionName = "1.0.6"
+        versionCode = 8
+        versionName = "1.0.7"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
@@ -57,7 +57,13 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
+            // Minification disabled: R8 was stripping methods Compose
+            // material3 expects at runtime (KeyframesSpec.at(Object, Int)),
+            // which crashed LinearProgressIndicator the first time it
+            // rendered. App size savings are negligible at ~2 MB so we
+            // forgo shrinking entirely until someone writes a proper
+            // Compose-aware ProGuard config.
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
