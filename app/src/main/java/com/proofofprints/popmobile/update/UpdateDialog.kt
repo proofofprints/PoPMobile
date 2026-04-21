@@ -273,7 +273,7 @@ private fun openInstallPermissionSettings(context: Context) {
 private fun formatBytes(b: Long): String = when {
     b <= 0L -> "—"
     b < 1024 -> "$b B"
-    b < 1024L * 1024 -> String.format("%.1f KB", b / 1024f)
-    b < 1024L * 1024 * 1024 -> String.format("%.1f MB", b / (1024f * 1024f))
-    else -> String.format("%.2f GB", b / (1024f * 1024f * 1024f))
+    b < 1024L * 1024 -> String.format(java.util.Locale.US, "%.1f KB", b / 1024f)
+    b < 1024L * 1024 * 1024 -> String.format(java.util.Locale.US, "%.1f MB", b / (1024f * 1024f))
+    else -> String.format(java.util.Locale.US, "%.2f GB", b / (1024f * 1024f * 1024f))
 }

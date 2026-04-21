@@ -663,6 +663,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     private fun updateNotification(status: String? = null) {
         val thermalInfo = if (cpuTemp > 0) " | ${cpuTemp.toInt()}°C" else ""
         val text = status ?: String.format(
+            java.util.Locale.US,
             "%.2f H/s | A:%d R:%d%s",
             hashrate, sharesFound, sharesRejected, thermalInfo
         )
@@ -671,8 +672,8 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     }
 
     private fun formatHashes(count: Long): String = when {
-        count >= 1_000_000 -> String.format("%.1fM", count / 1_000_000.0)
-        count >= 1_000 -> String.format("%.1fK", count / 1_000.0)
+        count >= 1_000_000 -> String.format(java.util.Locale.US, "%.1fM", count / 1_000_000.0)
+        count >= 1_000 -> String.format(java.util.Locale.US, "%.1fK", count / 1_000.0)
         else -> count.toString()
     }
 }

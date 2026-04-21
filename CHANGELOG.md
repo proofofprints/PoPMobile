@@ -3,6 +3,11 @@
 All notable changes to PoPMobile are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.13] — 2026-04-21
+### Fixed
+- **Landscape mode scrolling.** Rotating the phone to landscape hid the **START MINING** button below the fold with no way to scroll to it. The dashboard now switches to a scrollable layout when the device is in landscape while keeping the portrait design (weighted spacer, button anchored near the bottom) intact.
+- **Decimal separator in numeric displays.** Hashrate, hash total, difficulty, notification text, and update-size formatting were rendering with locale-dependent separators — e.g. `1,52 MH/s` instead of `1.52 MH/s` on French/German/etc. systems. All user-visible number formats now explicitly use `Locale.US` so the decimal is always a period.
+
 ## [1.0.12] — 2026-04-21
 ### Changed
 - Start Mining validation toast now **prefixes the field name** so it's obvious which input is wrong. Examples: `Wallet: Must start with kaspa:`, `Pool: Port must be between 1 and 65535`, `Worker: Worker name is required`.
@@ -86,6 +91,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Mining log retaining the last four hours of stratum + share events.
 - PoPManager pairing with per-device API keys, telemetry every 30 s, and remote commands (`set_config`, `set_threads`, `start`, `stop`, `restart`) applied and acknowledged.
 
+[1.0.13]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.13
 [1.0.12]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.12
 [1.0.11]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.11
 [1.0.10]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.10
