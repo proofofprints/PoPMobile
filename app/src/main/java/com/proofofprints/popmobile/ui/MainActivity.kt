@@ -757,11 +757,30 @@ class MainActivity : ComponentActivity() {
                         fontFamily = FontFamily.Monospace
                     )
 
+                    // Validators only re-run when the field value actually
+                    // changes (memoized via remember), and blank-required
+                    // errors are suppressed inline — we don't want the
+                    // Settings panel to open with three red error messages
+                    // on a fresh install. The Start Mining toast still
+                    // catches empty-required fields.
+                    val poolUrlError = remember(poolUrl) {
+                        if (poolUrl.isBlank()) null
+                        else FieldValidators.validatePoolUrl(poolUrl)
+                    }
+                    val walletError = remember(wallet) {
+                        if (wallet.isBlank()) null
+                        else FieldValidators.validateWalletAddress(wallet)
+                    }
+                    val workerError = remember(worker) {
+                        if (worker.isBlank()) null
+                        else FieldValidators.validateWorkerName(worker)
+                    }
+
                     MinerTextField(
                         label = "Pool URL (host:port)",
                         value = poolUrl,
                         onValueChange = onPoolUrlChange,
-                        errorText = FieldValidators.validatePoolUrl(poolUrl)
+                        errorText = poolUrlError
                     )
 
                     // Wallet address with a QR scan button
@@ -775,7 +794,7 @@ class MainActivity : ComponentActivity() {
                                 label = "Wallet Address",
                                 value = wallet,
                                 onValueChange = onWalletChange,
-                                errorText = FieldValidators.validateWalletAddress(wallet)
+                                errorText = walletError
                             )
                         }
                         OutlinedButton(
@@ -795,7 +814,7 @@ class MainActivity : ComponentActivity() {
                         label = "Worker Name",
                         value = worker,
                         onValueChange = onWorkerChange,
-                        errorText = FieldValidators.validateWorkerName(worker)
+                        errorText = workerError
                     )
 
                     // Thread count slider

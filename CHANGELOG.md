@@ -3,6 +3,12 @@
 All notable changes to PoPMobile are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.12] — 2026-04-21
+### Changed
+- Start Mining validation toast now **prefixes the field name** so it's obvious which input is wrong. Examples: `Wallet: Must start with kaspa:`, `Pool: Port must be between 1 and 65535`, `Worker: Worker name is required`.
+- **Inline errors in Settings no longer appear for empty required fields.** Format errors (`kaspa:xyz` too short, port missing, etc.) still show under the field. Blank-required state is caught by the Start Mining toast only — keeps the Settings panel from opening with three red messages on a fresh install.
+- **Memoized validator results** per field so the regex doesn't re-run on every recomposition — trims work on the UI thread while the user is typing.
+
 ## [1.0.11] — 2026-04-18
 ### Added
 - **Default pool URL** — Settings → Pool URL now pre-fills with `stratum+tcp://pool.proofofprints.com:5558` on first launch so a brand-new install can start mining by entering only a wallet address.
@@ -80,6 +86,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Mining log retaining the last four hours of stratum + share events.
 - PoPManager pairing with per-device API keys, telemetry every 30 s, and remote commands (`set_config`, `set_threads`, `start`, `stop`, `restart`) applied and acknowledged.
 
+[1.0.12]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.12
 [1.0.11]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.11
 [1.0.10]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.10
 [1.0.9]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.9

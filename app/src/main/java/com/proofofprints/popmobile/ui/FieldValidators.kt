@@ -63,14 +63,14 @@ internal object FieldValidators {
     }
 
     /**
-     * Returns the first error among the three fields, or null if all pass.
-     * Used by the Start Mining button to decide whether to show a toast
-     * or actually kick off the mining service.
+     * Returns the first error among the three fields, already prefixed with
+     * a short field label so toast messages like "Wallet: Must start with
+     * kaspa:" make sense without extra context. Null if all three pass.
      */
     fun firstError(poolUrl: String, wallet: String, worker: String): String? =
-        validatePoolUrl(poolUrl)
-            ?: validateWalletAddress(wallet)
-            ?: validateWorkerName(worker)
+        validatePoolUrl(poolUrl)?.let { "Pool: $it" }
+            ?: validateWalletAddress(wallet)?.let { "Wallet: $it" }
+            ?: validateWorkerName(worker)?.let { "Worker: $it" }
 }
 
 /** Default pool URL used when the user hasn't saved their own yet. */
