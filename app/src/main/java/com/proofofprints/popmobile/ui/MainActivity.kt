@@ -1081,8 +1081,8 @@ class MainActivity : ComponentActivity() {
     fun MinerTextField(
         label: String,
         value: String,
-        onValueChange: (String) -> Unit,
-        errorText: String? = null
+        errorText: String? = null,
+        onValueChange: (String) -> Unit
     ) {
         val isError = errorText != null
         val errorColor = Color(0xFFFF6B6B)
