@@ -23,7 +23,9 @@ class ThermalMonitor(private val context: Context) {
     companion object {
         private const val TAG = "ThermalMonitor"
 
-        /** Temperature thresholds in Celsius */
+        /** Temperature thresholds in Celsius — used only when we have a real
+         *  raw sensor reading. When the system exposes a bucketed thermal
+         *  status via PowerManager we use that directly instead. */
         const val TEMP_WARNING = 45.0f
         const val TEMP_THROTTLE = 50.0f   // Reduce threads at this temp
         const val TEMP_CRITICAL = 55.0f   // Pause mining entirely
@@ -41,7 +43,7 @@ class ThermalMonitor(private val context: Context) {
     }
 
     data class DeviceStatus(
-        val cpuTemp: Float,           // Celsius (0 if unavailable)
+        val cpuTemp: Float,           // Celsius (0 if unavailable; may be battery temp if CPU sensors locked down)
         val batteryPercent: Int,      // 0-100
         val isCharging: Boolean,
         val thermalState: ThermalState,
@@ -54,18 +56,31 @@ class ThermalMonitor(private val context: Context) {
      * Read current device thermal and battery status.
      */
     fun getStatus(currentThreads: Int): DeviceStatus {
-        val cpuTemp = readCpuTemperature()
-        val batteryPercent = getBatteryPercent()
-        val isCharging = isDeviceCharging()
-
         maxThreads = currentThreads
 
+        // Single ACTION_BATTERY_CHANGED read covers percent-fallback,
+        // charging state, and battery temperature.
+        val batteryIntent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val batteryPercent = readBatteryPercent(batteryIntent)
+        val isCharging = readIsCharging(batteryIntent)
+        val batteryTemp = readBatteryTemperature(batteryIntent)
+
+        val cpuTemp = readCpuTemperature()
+        // Display temp: CPU if we have it, otherwise fall back to battery
+        // temperature. Battery sits right next to the SoC so it's a decent
+        // proxy when thermal_zone is locked down.
+        val displayTemp = if (cpuTemp > 0f) cpuTemp else batteryTemp
+
+        // Direct PowerManager thermal status is the truthiest signal when
+        // available. Fall back to our temperature threshold logic if not.
+        val thermalStateFromOs = readOsThermalState()
         val thermalState = when {
-            cpuTemp >= TEMP_CRITICAL -> ThermalState.CRITICAL
-            cpuTemp >= TEMP_THROTTLE -> ThermalState.THROTTLE
-            cpuTemp >= TEMP_WARNING -> ThermalState.WARNING
-            batteryPercent <= BATTERY_CRITICAL && !isCharging -> ThermalState.CRITICAL
-            batteryPercent <= BATTERY_LOW && !isCharging -> ThermalState.WARNING
+            thermalStateFromOs != null -> combineWithBattery(thermalStateFromOs, batteryPercent, isCharging)
+            displayTemp >= TEMP_CRITICAL -> ThermalState.CRITICAL
+            displayTemp >= TEMP_THROTTLE -> ThermalState.THROTTLE
+            displayTemp >= TEMP_WARNING -> ThermalState.WARNING
+            batteryPercent in 1..BATTERY_CRITICAL && !isCharging -> ThermalState.CRITICAL
+            batteryPercent in 1..BATTERY_LOW && !isCharging -> ThermalState.WARNING
             else -> ThermalState.NORMAL
         }
 
@@ -77,7 +92,7 @@ class ThermalMonitor(private val context: Context) {
         }
 
         return DeviceStatus(
-            cpuTemp = cpuTemp,
+            cpuTemp = displayTemp,
             batteryPercent = batteryPercent,
             isCharging = isCharging,
             thermalState = thermalState,
@@ -86,36 +101,59 @@ class ThermalMonitor(private val context: Context) {
     }
 
     /**
-     * Read CPU temperature from thermal zones.
-     * Returns temperature in Celsius, or 0 if unavailable.
+     * Ask the OS's PowerManager for its current thermal-status bucket and
+     * map it directly onto our ThermalState enum. Returns null on API<29 or
+     * when the call throws (happens on some OEM AOSP forks).
      */
-    private fun readCpuTemperature(): Float {
-        // Try Android PowerManager thermal status (API 29+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            try {
-                val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-                val thermalStatus = pm.currentThermalStatus
-                // Map thermal status to approximate temperature
-                return when (thermalStatus) {
-                    PowerManager.THERMAL_STATUS_NONE -> 35.0f
-                    PowerManager.THERMAL_STATUS_LIGHT -> 42.0f
-                    PowerManager.THERMAL_STATUS_MODERATE -> 48.0f
-                    PowerManager.THERMAL_STATUS_SEVERE -> 53.0f
-                    PowerManager.THERMAL_STATUS_CRITICAL -> 58.0f
-                    PowerManager.THERMAL_STATUS_EMERGENCY -> 65.0f
-                    PowerManager.THERMAL_STATUS_SHUTDOWN -> 70.0f
-                    else -> readThermalZones()
-                }
-            } catch (e: Exception) {
-                Log.d(TAG, "PowerManager thermal API unavailable: ${e.message}")
+    private fun readOsThermalState(): ThermalState? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
+        return try {
+            val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            when (pm.currentThermalStatus) {
+                PowerManager.THERMAL_STATUS_NONE,
+                PowerManager.THERMAL_STATUS_LIGHT -> ThermalState.NORMAL
+                PowerManager.THERMAL_STATUS_MODERATE -> ThermalState.WARNING
+                PowerManager.THERMAL_STATUS_SEVERE -> ThermalState.THROTTLE
+                PowerManager.THERMAL_STATUS_CRITICAL,
+                PowerManager.THERMAL_STATUS_EMERGENCY,
+                PowerManager.THERMAL_STATUS_SHUTDOWN -> ThermalState.CRITICAL
+                else -> ThermalState.NORMAL
             }
+        } catch (e: Exception) {
+            Log.d(TAG, "PowerManager thermal API unavailable: ${e.message}")
+            null
         }
+    }
 
-        return readThermalZones()
+    /** Roll battery-level concerns into the OS thermal decision — low
+     *  battery outranks a NORMAL thermal state but not a CRITICAL one. */
+    private fun combineWithBattery(
+        os: ThermalState,
+        batteryPercent: Int,
+        isCharging: Boolean
+    ): ThermalState {
+        if (isCharging || batteryPercent <= 0) return os
+        val batteryState = when {
+            batteryPercent <= BATTERY_CRITICAL -> ThermalState.CRITICAL
+            batteryPercent <= BATTERY_LOW -> ThermalState.WARNING
+            else -> ThermalState.NORMAL
+        }
+        // ThermalState enum is declared in severity order, ordinal == severity.
+        return if (batteryState.ordinal > os.ordinal) batteryState else os
     }
 
     /**
-     * Read from /sys/class/thermal/thermal_zone* as fallback.
+     * Read CPU temperature from /sys/class/thermal/thermal_zone*. Returns
+     * temperature in Celsius, or 0 if no readable zone exists.
+     * (The PowerManager path is handled separately above for the thermal
+     * STATE — raw temp only gets displayed when this or battery has a value.)
+     */
+    private fun readCpuTemperature(): Float = readThermalZones()
+
+    /**
+     * Read from /sys/class/thermal/thermal_zone* as a raw-temperature source.
+     * Many OEMs restrict these on retail Android; we fall through to battery
+     * temperature in that case.
      */
     private fun readThermalZones(): Float {
         var maxTemp = 0.0f
@@ -157,20 +195,44 @@ class ThermalMonitor(private val context: Context) {
     }
 
     /**
-     * Get battery percentage (0-100).
+     * Get battery percentage (0-100). Tries BatteryManager.BATTERY_PROPERTY_CAPACITY
+     * first, which is API 21+ and should work everywhere, but some OEMs return
+     * -1 or 0 in practice. Falls back to the EXTRA_LEVEL / EXTRA_SCALE pair from
+     * ACTION_BATTERY_CHANGED, which is more universally supported.
      */
-    private fun getBatteryPercent(): Int {
-        val bm = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
-        return bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+    private fun readBatteryPercent(batteryIntent: Intent?): Int {
+        val bm = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
+        val capacity = bm?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
+        if (capacity in 0..100) return capacity
+
+        // Fallback — ACTION_BATTERY_CHANGED extras.
+        val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+        return if (level >= 0 && scale > 0) {
+            (level * 100 / scale).coerceIn(0, 100)
+        } else {
+            0
+        }
+    }
+
+    /** Check if the device is currently charging. */
+    private fun readIsCharging(batteryIntent: Intent?): Boolean {
+        val status = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+        return status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                status == BatteryManager.BATTERY_STATUS_FULL
     }
 
     /**
-     * Check if the device is currently charging.
+     * Battery temperature from ACTION_BATTERY_CHANGED. The battery sits
+     * adjacent to the SoC on essentially every phone, so its temperature
+     * is a reasonable proxy for "how hot is the device" when the OEM
+     * locks down the CPU thermal zones.
+     *
+     * EXTRA_TEMPERATURE is documented as tenths of a degree Celsius.
+     * Returns 0 if unavailable.
      */
-    private fun isDeviceCharging(): Boolean {
-        val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-        val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
-        return status == BatteryManager.BATTERY_STATUS_CHARGING ||
-               status == BatteryManager.BATTERY_STATUS_FULL
+    private fun readBatteryTemperature(batteryIntent: Intent?): Float {
+        val tenths = batteryIntent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1) ?: -1
+        return if (tenths > 0) tenths / 10.0f else 0f
     }
 }
