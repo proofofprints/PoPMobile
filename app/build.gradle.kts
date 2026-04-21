@@ -28,8 +28,8 @@ android {
         applicationId = "com.proofofprints.kasminer"
         minSdk = 26
         targetSdk = 34
-        versionCode = 13
-        versionName = "1.0.12"
+        versionCode = 14
+        versionName = "1.0.13"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")

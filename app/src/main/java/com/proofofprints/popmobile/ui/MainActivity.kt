@@ -393,15 +393,25 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             } else {
-                // Dashboard fills the available viewport; the weighted spacer
-                // before the button keeps the button anchored near the bottom
-                // so the whole layout spans ~3/4 of the screen on any device.
+                // Dashboard layout: in portrait we fill the viewport and use
+                // a weighted spacer to push the START MINING button toward
+                // the bottom. In landscape the viewport is too short for
+                // that to fit, so we drop the spacer and make the column
+                // scrollable — otherwise the button is clipped off-screen
+                // with no way to reach it.
+                val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current
+                    .orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+                val dashboardModifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF0F0F23))
+                    .padding(padding)
+                    .then(
+                        if (isLandscape) Modifier.verticalScroll(rememberScrollState())
+                        else Modifier
+                    )
+                    .padding(horizontal = 12.dp, vertical = 12.dp)
                 Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color(0xFF0F0F23))
-                        .padding(padding)
-                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                    modifier = dashboardModifier,
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     StatusCard(
@@ -507,7 +517,15 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    Spacer(modifier = Modifier.weight(1f))
+                    // Weighted spacer only works inside a bounded-height
+                    // parent — i.e. portrait, where the column is a plain
+                    // fillMaxSize. In landscape the parent is verticalScroll
+                    // (unbounded) so the spacer is omitted; the button just
+                    // sits after the last stat row and the user scrolls
+                    // normally.
+                    if (!isLandscape) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
 
                     // Start/Stop button — shows STOP whenever a session is
                     // active, even if the pool isn't connected yet, so the
@@ -630,7 +648,7 @@ class MainActivity : ComponentActivity() {
                     )
                     if (difficulty > 0) {
                         Text(
-                            "DIFF: ${"%.4f".format(difficulty)}",
+                            "DIFF: ${String.format(java.util.Locale.US, "%.4f", difficulty)}",
                             color = Color(0xFF8B5CF6),
                             fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace
@@ -1229,17 +1247,22 @@ class MainActivity : ComponentActivity() {
         startService(intent)
     }
 
+    // Explicit Locale.US on the numeric formatters below. Kotlin/JVM's
+    // String.format defaults to the device locale, which renders `%f`
+    // with a comma as the decimal separator on many European systems
+    // (fr, de, it, es, nl, …). We always want "1.52 MH/s", not "1,52 MH/s".
+
     private fun formatHashrate(hr: Double): String = when {
-        hr >= 1_000_000 -> String.format("%.2f MH/s", hr / 1_000_000)
-        hr >= 1_000 -> String.format("%.2f KH/s", hr / 1_000)
-        hr > 0 -> String.format("%.1f H/s", hr)
+        hr >= 1_000_000 -> String.format(java.util.Locale.US, "%.2f MH/s", hr / 1_000_000)
+        hr >= 1_000 -> String.format(java.util.Locale.US, "%.2f KH/s", hr / 1_000)
+        hr > 0 -> String.format(java.util.Locale.US, "%.1f H/s", hr)
         else -> "0 H/s"
     }
 
     private fun formatHashes(count: Long): String = when {
-        count >= 1_000_000_000 -> String.format("%.1fG", count / 1_000_000_000.0)
-        count >= 1_000_000 -> String.format("%.1fM", count / 1_000_000.0)
-        count >= 1_000 -> String.format("%.1fK", count / 1_000.0)
+        count >= 1_000_000_000 -> String.format(java.util.Locale.US, "%.1fG", count / 1_000_000_000.0)
+        count >= 1_000_000 -> String.format(java.util.Locale.US, "%.1fM", count / 1_000_000.0)
+        count >= 1_000 -> String.format(java.util.Locale.US, "%.1fK", count / 1_000.0)
         else -> count.toString()
     }
 
