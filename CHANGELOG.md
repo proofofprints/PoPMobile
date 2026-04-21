@@ -3,6 +3,26 @@
 All notable changes to PoPMobile are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.12] — 2026-04-21
+### Changed
+- Start Mining validation toast now **prefixes the field name** so it's obvious which input is wrong. Examples: `Wallet: Must start with kaspa:`, `Pool: Port must be between 1 and 65535`, `Worker: Worker name is required`.
+- **Inline errors in Settings no longer appear for empty required fields.** Format errors (`kaspa:xyz` too short, port missing, etc.) still show under the field. Blank-required state is caught by the Start Mining toast only — keeps the Settings panel from opening with three red messages on a fresh install.
+- **Memoized validator results** per field so the regex doesn't re-run on every recomposition — trims work on the UI thread while the user is typing.
+
+## [1.0.11] — 2026-04-18
+### Added
+- **Default pool URL** — Settings → Pool URL now pre-fills with `stratum+tcp://pool.proofofprints.com:5558` on first launch so a brand-new install can start mining by entering only a wallet address.
+- **Inline validation** on the three miner configuration fields with red border + error text:
+  - Pool URL must be `stratum+tcp://host:port`
+  - Wallet address must begin with `kaspa:` (or `kaspatest:`) and be structurally plausible
+  - Worker name must be non-empty and alphanumeric (plus `_`, `-`, `.`)
+- **Start Mining validation toast** — the button no longer silently does nothing when a field is invalid. Tapping it with bad input shows a toast naming the specific problem ("Wallet address is required", "Port must be between 1 and 65535", etc.) and refuses to start the service.
+
+### Changed
+- **PoPManager Integration** header now reads "POPMANAGER INTEGRATION (Optional)" so new users know pairing isn't required to mine.
+- Section description rewritten: "Pair with PoPManager to monitor your mobile mining."
+- Removed the "Forget this device and re-pair" button. Deleting a device on the PoPManager side is now the canonical way to un-pair — the reporter's existing 401/404 handling already clears the local credentials and flips the app back to the pairing-code input without any user action needed here.
+
 ## [1.0.10] — 2026-04-18
 ### Notes
 - Pipeline-verification release — no code changes. Exists so devices on v1.0.9 (the first build with the non-crashing progress bar) can finally exercise the in-app update flow end-to-end against a newer release.
@@ -66,6 +86,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Mining log retaining the last four hours of stratum + share events.
 - PoPManager pairing with per-device API keys, telemetry every 30 s, and remote commands (`set_config`, `set_threads`, `start`, `stop`, `restart`) applied and acknowledged.
 
+[1.0.12]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.12
+[1.0.11]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.11
 [1.0.10]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.10
 [1.0.9]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.9
 [1.0.7]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.7

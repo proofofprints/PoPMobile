@@ -133,9 +133,15 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun MinerDashboard() {
-        // Settings state
+        // Settings state. Pool URL pre-fills with our public default so a
+        // first-launch user can mine with zero typing (just a wallet).
         val prefs = getSharedPreferences("kas_miner", Context.MODE_PRIVATE)
-        var poolUrl by remember { mutableStateOf(prefs.getString("pool_url", "") ?: "") }
+        var poolUrl by remember {
+            mutableStateOf(
+                prefs.getString("pool_url", null)?.takeIf { it.isNotBlank() }
+                    ?: DEFAULT_POOL_URL
+            )
+        }
         var wallet by remember { mutableStateOf(prefs.getString("wallet", "") ?: "") }
         var worker by remember { mutableStateOf(prefs.getString("worker", "PoPMobile") ?: "PoPMobile") }
         var threads by remember { mutableIntStateOf(prefs.getInt("threads", 2)) }
@@ -512,7 +518,20 @@ class MainActivity : ComponentActivity() {
                             if (sessionLive) {
                                 stopMiningService()
                             } else {
-                                startMiningService(poolUrl, wallet, worker, threads)
+                                // Validate all three fields on tap; surface the
+                                // first error as a toast instead of silently
+                                // doing nothing. Button stays enabled so the
+                                // user always gets feedback.
+                                val error = FieldValidators.firstError(poolUrl, wallet, worker)
+                                if (error != null) {
+                                    android.widget.Toast.makeText(
+                                        this@MainActivity,
+                                        error,
+                                        android.widget.Toast.LENGTH_LONG
+                                    ).show()
+                                } else {
+                                    startMiningService(poolUrl.trim(), wallet.trim(), worker.trim(), threads)
+                                }
                             }
                         },
                         modifier = Modifier
@@ -521,8 +540,7 @@ class MainActivity : ComponentActivity() {
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (sessionLive) Color(0xFFFF4444) else Color(0xFF49EACB)
                         ),
-                        shape = RoundedCornerShape(12.dp),
-                        enabled = wallet.isNotEmpty() && poolUrl.isNotEmpty()
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(
                             if (sessionLive) "STOP MINING" else "START MINING",
@@ -739,16 +757,45 @@ class MainActivity : ComponentActivity() {
                         fontFamily = FontFamily.Monospace
                     )
 
-                    MinerTextField("Pool URL (host:port)", poolUrl, onPoolUrlChange)
+                    // Validators only re-run when the field value actually
+                    // changes (memoized via remember), and blank-required
+                    // errors are suppressed inline — we don't want the
+                    // Settings panel to open with three red error messages
+                    // on a fresh install. The Start Mining toast still
+                    // catches empty-required fields.
+                    val poolUrlError = remember(poolUrl) {
+                        if (poolUrl.isBlank()) null
+                        else FieldValidators.validatePoolUrl(poolUrl)
+                    }
+                    val walletError = remember(wallet) {
+                        if (wallet.isBlank()) null
+                        else FieldValidators.validateWalletAddress(wallet)
+                    }
+                    val workerError = remember(worker) {
+                        if (worker.isBlank()) null
+                        else FieldValidators.validateWorkerName(worker)
+                    }
+
+                    MinerTextField(
+                        label = "Pool URL (host:port)",
+                        value = poolUrl,
+                        onValueChange = onPoolUrlChange,
+                        errorText = poolUrlError
+                    )
 
                     // Wallet address with a QR scan button
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
+                        verticalAlignment = Alignment.Top,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Box(modifier = Modifier.weight(1f)) {
-                            MinerTextField("Wallet Address", wallet, onWalletChange)
+                            MinerTextField(
+                                label = "Wallet Address",
+                                value = wallet,
+                                onValueChange = onWalletChange,
+                                errorText = walletError
+                            )
                         }
                         OutlinedButton(
                             onClick = { launchWalletQrScanner(onWalletChange) },
@@ -763,7 +810,12 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    MinerTextField("Worker Name", worker, onWorkerChange)
+                    MinerTextField(
+                        label = "Worker Name",
+                        value = worker,
+                        onValueChange = onWorkerChange,
+                        errorText = workerError
+                    )
 
                     // Thread count slider
                     Text("Threads: $threads / $maxThreads", color = Color.White, fontFamily = FontFamily.Monospace)
@@ -798,14 +850,14 @@ class MainActivity : ComponentActivity() {
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        "POPMANAGER INTEGRATION",
+                        "POPMANAGER INTEGRATION (Optional)",
                         color = Color(0xFF49EACB),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
                     )
                     Text(
-                        "Report this miner to a PoPManager instance on your network.",
+                        "Pair with PoPManager to monitor your mobile mining.",
                         color = Color.Gray,
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace
@@ -970,27 +1022,6 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // Re-pair link (when already paired, lets the user force a fresh pair)
-                    if (hasStoredKey && !popPairingRequired) {
-                        TextButton(
-                            onClick = {
-                                miningService?.popManagerReporter?.clearCredentials()
-                                // Force the reporter into pairing_required state
-                                miningService?.popManagerReporter?.stop()
-                                miningService?.popManagerReporter?.start()
-                                popPairResult = "Credentials cleared — enter new pairing code"
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                "Forget this device and re-pair",
-                                color = Color(0xFFFFD700),
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
-                    }
-
                     popTestResult?.let {
                         Text(
                             it,
@@ -1037,9 +1068,11 @@ class MainActivity : ComponentActivity() {
                         .putString("device_name", popDeviceName)
                         .apply()
                     // Restart reporter so it picks up the new server URL /
-                    // device name. We do NOT clear credentials here — if the
-                    // user pointed at a different server they should use the
-                    // "Forget this device and re-pair" link explicitly.
+                    // device name. We don't clear credentials here: if the
+                    // user points at a different server, the reporter's 401
+                    // response from the new host will trigger re-pair
+                    // automatically. If the admin deletes the device from
+                    // PoPManager, the 404 path does the same.
                     miningService?.let { svc ->
                         svc.popManagerReporter.stop()
                         svc.popManagerReporter.start()
@@ -1064,24 +1097,46 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun MinerTextField(label: String, value: String, onValueChange: (String) -> Unit) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            label = { Text(label, fontFamily = FontFamily.Monospace) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
-                focusedBorderColor = Color(0xFF49EACB),
-                unfocusedBorderColor = Color(0xFF333333),
-                focusedLabelColor = Color(0xFF49EACB),
-                unfocusedLabelColor = Color.Gray,
-                cursorColor = Color(0xFF49EACB)
-            ),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii)
-        )
+    fun MinerTextField(
+        label: String,
+        value: String,
+        errorText: String? = null,
+        onValueChange: (String) -> Unit
+    ) {
+        val isError = errorText != null
+        val errorColor = Color(0xFFFF6B6B)
+        Column(modifier = Modifier.fillMaxWidth()) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                label = { Text(label, fontFamily = FontFamily.Monospace) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                isError = isError,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedBorderColor = Color(0xFF49EACB),
+                    unfocusedBorderColor = Color(0xFF333333),
+                    focusedLabelColor = Color(0xFF49EACB),
+                    unfocusedLabelColor = Color.Gray,
+                    cursorColor = Color(0xFF49EACB),
+                    errorBorderColor = errorColor,
+                    errorLabelColor = errorColor,
+                    errorCursorColor = errorColor
+                ),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii)
+            )
+            if (isError) {
+                Text(
+                    text = errorText!!,
+                    color = errorColor,
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.padding(start = 12.dp, top = 4.dp)
+                )
+            }
+        }
     }
 
     /** Launch the ZXing QR scanner to capture a Kaspa wallet address. ZXing
