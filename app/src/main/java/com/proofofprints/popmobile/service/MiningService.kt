@@ -464,13 +464,23 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
         var tickCount = 0L
         var lastPerThreadHashes = LongArray(0)
         var lastPerThreadTickMs = 0L
+        Log.i(TAG, "statsUpdateLoop ENTERED (engineRunning=${miningEngine.isRunning} paused=$thermalPaused)")
         while (miningEngine.isRunning || thermalPaused) {
+            Log.i(TAG, "TICK #$tickCount begin")
             // Thermal check every cycle
-            val status = thermalMonitor.getStatus(threadCount)
-            cpuTemp = status.cpuTemp
-            batteryPercent = status.batteryPercent
-            isCharging = status.isCharging
-            thermalState = status.thermalState
+            val status = try {
+                thermalMonitor.getStatus(threadCount)
+            } catch (t: Throwable) {
+                Log.e(TAG, "thermalMonitor.getStatus threw: ${t.message}", t)
+                null
+            }
+            if (status != null) {
+                cpuTemp = status.cpuTemp
+                batteryPercent = status.batteryPercent
+                isCharging = status.isCharging
+                thermalState = status.thermalState
+                Log.i(TAG, "TICK #$tickCount thermal: temp=${status.cpuTemp} batt=${status.batteryPercent}% charging=${status.isCharging} state=${status.thermalState} rec=${status.recommendedThreads}")
+            }
 
             // Periodic hashrate diagnostic — every 20 ticks (~60s) log the three
             // windowed rates plus per-thread deltas. Lets us see in logcat whether
@@ -510,7 +520,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
                 }
             }
 
-            when (status.thermalState) {
+            if (status != null) when (status.thermalState) {
                 ThermalMonitor.ThermalState.CRITICAL -> {
                     if (miningEngine.isRunning) {
                         Log.w(TAG, "THERMAL CRITICAL (${cpuTemp}°C) — pausing mining!")

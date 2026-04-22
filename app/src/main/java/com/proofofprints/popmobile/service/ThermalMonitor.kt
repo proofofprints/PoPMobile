@@ -51,12 +51,17 @@ class ThermalMonitor(private val context: Context) {
     )
 
     private var maxThreads: Int = Runtime.getRuntime().availableProcessors()
+    private var dumpedZones: Boolean = false
 
     /**
      * Read current device thermal and battery status.
      */
     fun getStatus(currentThreads: Int): DeviceStatus {
         maxThreads = currentThreads
+        if (!dumpedZones) {
+            dumpAllThermalZones()
+            dumpedZones = true
+        }
 
         // Single ACTION_BATTERY_CHANGED read covers percent-fallback,
         // charging state, and battery temperature.
@@ -149,6 +154,33 @@ class ThermalMonitor(private val context: Context) {
      * STATE — raw temp only gets displayed when this or battery has a value.)
      */
     private fun readCpuTemperature(): Float = readThermalZones()
+
+    /** One-shot dump of every thermal zone the OS exposes. Run once per session
+     *  so we can see in logcat which zones exist and which are readable by the
+     *  unprivileged app UID — vendors lock different zones on different ROMs. */
+    private fun dumpAllThermalZones() {
+        try {
+            val thermalDir = File("/sys/class/thermal/")
+            val zones = thermalDir.listFiles()?.filter { it.name.startsWith("thermal_zone") }?.sortedBy { it.name }
+            if (zones.isNullOrEmpty()) {
+                Log.w(TAG, "ZONE_DUMP: /sys/class/thermal has no thermal_zone* entries")
+                return
+            }
+            Log.i(TAG, "ZONE_DUMP: ${zones.size} thermal zones found")
+            for (zone in zones) {
+                val type = try {
+                    File(zone, "type").takeIf { it.exists() && it.canRead() }?.readText()?.trim() ?: "?"
+                } catch (e: Exception) { "err:${e.message}" }
+                val temp = try {
+                    val f = File(zone, "temp")
+                    if (f.exists() && f.canRead()) f.readText().trim() else "unreadable"
+                } catch (e: Exception) { "err:${e.message}" }
+                Log.i(TAG, "ZONE_DUMP ${zone.name} type=$type temp=$temp")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "ZONE_DUMP failed: ${e.message}")
+        }
+    }
 
     /**
      * Read from /sys/class/thermal/thermal_zone* as a raw-temperature source.
