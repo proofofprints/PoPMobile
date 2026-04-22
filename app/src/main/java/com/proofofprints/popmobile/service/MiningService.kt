@@ -464,8 +464,12 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
         var tickCount = 0L
         var lastPerThreadHashes = LongArray(0)
         var lastPerThreadTickMs = 0L
-        Log.i(TAG, "statsUpdateLoop ENTERED [${com.proofofprints.popmobile.mining.MiningEngine.BUILD_MARKER}] (engineRunning=${miningEngine.isRunning} paused=$thermalPaused)")
-        while (miningEngine.isRunning || thermalPaused) {
+        Log.i(TAG, "statsUpdateLoop ENTERED [${com.proofofprints.popmobile.mining.MiningEngine.BUILD_MARKER}] (engineRunning=${miningEngine.isRunning} paused=$thermalPaused session=$isSessionActive)")
+        // Keyed on isSessionActive so the loop stays alive from pool-connect
+        // (before the first job arrives and kicks off the miner) all the way
+        // through thermal pauses, and only exits when the user stops the
+        // session. Inner work runs only when the engine is actually hashing.
+        while (isSessionActive) {
             Log.i(TAG, "TICK #$tickCount begin")
             // Thermal check every cycle
             val status = try {
@@ -558,6 +562,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
             onStatsUpdate?.invoke()
             delay(3000) // Check every 3 seconds
         }
+        Log.i(TAG, "statsUpdateLoop EXITED (session=$isSessionActive)")
     }
 
     // ===== StratumListener callbacks =====
@@ -628,6 +633,16 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     }
 
     override fun onNewJob(jobId: String, headerHash: ByteArray, timestamp: Long) {
+        // Drop late jobs that arrive after the user has stopped the session.
+        // Without this guard, a buffered job from the pool would re-start the
+        // miner milliseconds after stopMining() returned, making the Stop
+        // button appear unresponsive (the UI sees mining restart every few
+        // hundred ms until the TCP disconnect actually propagates).
+        if (!isSessionActive) {
+            Log.i(TAG, "Ignoring job $jobId — session stopped")
+            return
+        }
+
         Log.i(TAG, "New job $jobId, applying difficulty=$currentDifficulty")
         LogManager.info("New job received: $jobId")
         val target = miningEngine.setTargetFromDifficulty(currentDifficulty)
