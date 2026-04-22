@@ -475,33 +475,39 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
             // Periodic hashrate diagnostic — every 20 ticks (~60s) log the three
             // windowed rates plus per-thread deltas. Lets us see in logcat whether
             // the drop is global (thermal) or one stuck worker (scheduler/affinity).
+            // Wrapped in try/catch (Throwable) so a stale .so / partial rebuild
+            // can't kill the loop and stop temp updates.
             tickCount++
             if (miningEngine.isRunning && tickCount % 20L == 0L) {
-                val h10 = miningEngine.hashrate10s
-                val h60 = miningEngine.hashrate60s
-                val h15m = miningEngine.hashrate15min
-                val hAvg = miningEngine.hashrate
-                val active = miningEngine.activeThreads
-                val nowMs = System.currentTimeMillis()
-                val currentPerThread = LongArray(active) { miningEngine.threadHashes(it) }
+                try {
+                    val h10 = miningEngine.hashrate10s
+                    val h60 = miningEngine.hashrate60s
+                    val h15m = miningEngine.hashrate15min
+                    val hAvg = miningEngine.hashrate
+                    val active = miningEngine.activeThreads
+                    val nowMs = System.currentTimeMillis()
+                    val currentPerThread = LongArray(active) { miningEngine.threadHashes(it) }
 
-                val perThreadRates = if (lastPerThreadHashes.size == active && lastPerThreadTickMs > 0) {
-                    val dtSec = (nowMs - lastPerThreadTickMs) / 1000.0
-                    if (dtSec > 0) {
-                        (0 until active).joinToString(" ") { i ->
-                            val delta = currentPerThread[i] - lastPerThreadHashes[i]
-                            "t$i=${String.format(java.util.Locale.US, "%.0f", delta / dtSec)}"
-                        }
+                    val perThreadRates = if (lastPerThreadHashes.size == active && lastPerThreadTickMs > 0) {
+                        val dtSec = (nowMs - lastPerThreadTickMs) / 1000.0
+                        if (dtSec > 0) {
+                            (0 until active).joinToString(" ") { i ->
+                                val delta = currentPerThread[i] - lastPerThreadHashes[i]
+                                "t$i=${String.format(java.util.Locale.US, "%.0f", delta / dtSec)}"
+                            }
+                        } else ""
                     } else ""
-                } else ""
 
-                Log.i(TAG, String.format(
-                    java.util.Locale.US,
-                    "HASHRATE 10s=%.0f 60s=%.0f 15m=%.0f avg=%.0f | temp=%.1fC thrStat=%s | %s",
-                    h10, h60, h15m, hAvg, cpuTemp, thermalState.name, perThreadRates
-                ))
-                lastPerThreadHashes = currentPerThread
-                lastPerThreadTickMs = nowMs
+                    Log.i(TAG, String.format(
+                        java.util.Locale.US,
+                        "HASHRATE 10s=%.0f 60s=%.0f 15m=%.0f avg=%.0f | temp=%.1fC thrStat=%s | %s",
+                        h10, h60, h15m, hAvg, cpuTemp, thermalState.name, perThreadRates
+                    ))
+                    lastPerThreadHashes = currentPerThread
+                    lastPerThreadTickMs = nowMs
+                } catch (t: Throwable) {
+                    Log.e(TAG, "HASHRATE diagnostic failed (loop continues): ${t.message}", t)
+                }
             }
 
             when (status.thermalState) {
