@@ -14,7 +14,7 @@ class MiningEngine {
         /** Sentinel string in every log line from this class. Bump whenever we
          *  push new diagnostic code so we can `adb logcat | grep BUILD_MARKER`
          *  and be sure the device has the latest native+kotlin. */
-        const val BUILD_MARKER = "BUILD_MARKER_2026-04-22-socfix"
+        const val BUILD_MARKER = "BUILD_MARKER_2026-04-22-ratedecay"
 
         init {
             System.loadLibrary("popmobile")

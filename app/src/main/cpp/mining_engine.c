@@ -407,6 +407,10 @@ double mining_get_hashrate(void) {
 double mining_get_hashrate_window(double seconds) {
     if (seconds <= 0.0) return 0.0;
 
+    uint64_t now = now_monotonic_ms();
+    uint64_t window_ms = (uint64_t)(seconds * 1000.0);
+    uint64_t target_ts = (now > window_ms) ? (now - window_ms) : 0;
+
     pthread_mutex_lock(&samples_mutex);
     uint64_t written = samples_written;
     if (written < 2) {
@@ -418,26 +422,34 @@ double mining_get_hashrate_window(double seconds) {
     uint64_t newest_ts = samples[newest_slot].ts_ms;
     uint64_t newest_h = samples[newest_slot].total_hashes;
 
-    uint64_t window_ms = (uint64_t)(seconds * 1000.0);
-    uint64_t target_ts = (newest_ts > window_ms) ? (newest_ts - window_ms) : 0;
+    /* If the most recent sample is older than the window (reporter stopped,
+     * mining halted), there are no hashes in the window → rate is zero. */
+    if (newest_ts < target_ts) {
+        pthread_mutex_unlock(&samples_mutex);
+        return 0.0;
+    }
 
-    /* Walk back to find the oldest sample whose timestamp is within the window,
-     * bounded by history capacity. Use the sample just past target_ts so the
-     * window covers at least `seconds`. */
+    /* Walk back to find the oldest sample still inside [target_ts, now],
+     * bounded by history capacity. */
     uint64_t max_back = (written < HISTORY_SLOTS) ? written : HISTORY_SLOTS;
     uint64_t oldest_ts = newest_ts;
     uint64_t oldest_h = newest_h;
 
     for (uint64_t back = 1; back < max_back; back++) {
         uint64_t slot = (written - 1 - back) % HISTORY_SLOTS;
-        oldest_ts = samples[slot].ts_ms;
+        uint64_t ts = samples[slot].ts_ms;
+        if (ts < target_ts) break;
+        oldest_ts = ts;
         oldest_h = samples[slot].total_hashes;
-        if (oldest_ts <= target_ts) break;
     }
     pthread_mutex_unlock(&samples_mutex);
 
-    if (newest_ts <= oldest_ts) return 0.0;
-    double elapsed_s = (double)(newest_ts - oldest_ts) / 1000.0;
+    /* Anchor the window end at `now` so that after mining stops the denominator
+     * keeps growing even though no new samples arrive — rate decays smoothly to
+     * zero over the window's duration instead of being pinned at its last value. */
+    uint64_t window_end = (newest_ts > now) ? newest_ts : now;
+    if (window_end <= oldest_ts) return 0.0;
+    double elapsed_s = (double)(window_end - oldest_ts) / 1000.0;
     uint64_t delta = newest_h - oldest_h;
     return (double)delta / elapsed_s;
 }
