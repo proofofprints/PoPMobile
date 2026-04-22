@@ -39,8 +39,28 @@ class MiningEngine {
         nativeSetJob(headerHash, jobId, target, timestamp)
     }
 
+    /** Session-average hashrate (hashes since start / elapsed seconds).
+     *  Smooths out real variation — use [hashrateWindow] for live display. */
     val hashrate: Double
         get() = nativeGetHashrate()
+
+    /** Hashrate over the most recent [seconds] of mining (sliding window).
+     *  Prefer 10s for live UI, 60s for telemetry, 900s for steady-state. */
+    fun hashrateWindow(seconds: Double): Double = nativeGetHashrateWindow(seconds)
+
+    /** 10-second live hashrate — what the device is hashing at right now. */
+    val hashrate10s: Double get() = nativeGetHashrateWindow(10.0)
+
+    /** 60-second hashrate — smoothed for telemetry. */
+    val hashrate60s: Double get() = nativeGetHashrateWindow(60.0)
+
+    /** 15-minute hashrate — thermal-steady-state. */
+    val hashrate15min: Double get() = nativeGetHashrateWindow(900.0)
+
+    /** Raw per-thread hash counter, for spotting a stuck worker. */
+    fun threadHashes(threadIdx: Int): Long = nativeGetThreadHashes(threadIdx)
+
+    val activeThreads: Int get() = nativeGetActiveThreads()
 
     val totalHashes: Long
         get() = nativeGetTotalHashes()
@@ -74,6 +94,9 @@ class MiningEngine {
     private external fun nativeIsRunning(): Boolean
     private external fun nativeSetJob(headerHash: ByteArray, jobId: String, target: ByteArray, timestamp: Long)
     private external fun nativeGetHashrate(): Double
+    private external fun nativeGetHashrateWindow(seconds: Double): Double
+    private external fun nativeGetThreadHashes(threadIdx: Int): Long
+    private external fun nativeGetActiveThreads(): Int
     private external fun nativeGetTotalHashes(): Long
     private external fun nativeGetSharesFound(): Int
     private external fun nativeGetSharesRejected(): Int

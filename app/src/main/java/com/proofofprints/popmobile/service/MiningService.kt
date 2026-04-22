@@ -74,8 +74,13 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
         private set
     private var thermalPaused: Boolean = false
 
-    // Stats exposed to UI
-    val hashrate: Double get() = miningEngine.hashrate
+    // Stats exposed to UI — `hashrate` is the live (10s windowed) rate so the
+    // user sees what the device is actually hashing at right now, not a lifetime
+    // average that smears over throttling events.
+    val hashrate: Double get() = miningEngine.hashrate10s
+    val hashrate60s: Double get() = miningEngine.hashrate60s
+    val hashrate15min: Double get() = miningEngine.hashrate15min
+    val hashrateSessionAvg: Double get() = miningEngine.hashrate
     val totalHashes: Long get() = miningEngine.totalHashes
     val sharesFound: Int get() = miningEngine.sharesFound
     val sharesRejected: Int get() = miningEngine.sharesRejected
@@ -155,7 +160,9 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
                 coin = "KAS",
                 pool = if (poolHost.isNotEmpty()) "stratum+tcp://$poolHost:$poolPort" else "",
                 worker = if (walletAddress.isNotEmpty()) "$walletAddress.$workerName" else workerName,
-                hashrate = miningEngine.hashrate,
+                // Report live 60s windowed rate — smooth enough to avoid jitter,
+                // responsive enough to show thermal throttling as it happens.
+                hashrate = miningEngine.hashrate60s,
                 acceptedShares = miningEngine.sharesFound,
                 rejectedShares = miningEngine.sharesRejected,
                 difficulty = currentDifficulty,
@@ -454,6 +461,9 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     }
 
     private suspend fun statsUpdateLoop() {
+        var tickCount = 0L
+        var lastPerThreadHashes = LongArray(0)
+        var lastPerThreadTickMs = 0L
         while (miningEngine.isRunning || thermalPaused) {
             // Thermal check every cycle
             val status = thermalMonitor.getStatus(threadCount)
@@ -461,6 +471,38 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
             batteryPercent = status.batteryPercent
             isCharging = status.isCharging
             thermalState = status.thermalState
+
+            // Periodic hashrate diagnostic — every 20 ticks (~60s) log the three
+            // windowed rates plus per-thread deltas. Lets us see in logcat whether
+            // the drop is global (thermal) or one stuck worker (scheduler/affinity).
+            tickCount++
+            if (miningEngine.isRunning && tickCount % 20L == 0L) {
+                val h10 = miningEngine.hashrate10s
+                val h60 = miningEngine.hashrate60s
+                val h15m = miningEngine.hashrate15min
+                val hAvg = miningEngine.hashrate
+                val active = miningEngine.activeThreads
+                val nowMs = System.currentTimeMillis()
+                val currentPerThread = LongArray(active) { miningEngine.threadHashes(it) }
+
+                val perThreadRates = if (lastPerThreadHashes.size == active && lastPerThreadTickMs > 0) {
+                    val dtSec = (nowMs - lastPerThreadTickMs) / 1000.0
+                    if (dtSec > 0) {
+                        (0 until active).joinToString(" ") { i ->
+                            val delta = currentPerThread[i] - lastPerThreadHashes[i]
+                            "t$i=${String.format(java.util.Locale.US, "%.0f", delta / dtSec)}"
+                        }
+                    } else ""
+                } else ""
+
+                Log.i(TAG, String.format(
+                    java.util.Locale.US,
+                    "HASHRATE 10s=%.0f 60s=%.0f 15m=%.0f avg=%.0f | temp=%.1fC thrStat=%s | %s",
+                    h10, h60, h15m, hAvg, cpuTemp, thermalState.name, perThreadRates
+                ))
+                lastPerThreadHashes = currentPerThread
+                lastPerThreadTickMs = nowMs
+            }
 
             when (status.thermalState) {
                 ThermalMonitor.ThermalState.CRITICAL -> {
