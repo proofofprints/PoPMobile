@@ -406,6 +406,9 @@ double mining_get_hashrate(void) {
 
 double mining_get_hashrate_window(double seconds) {
     if (seconds <= 0.0) return 0.0;
+    /* If mining has been stopped, the device isn't hashing — don't report a
+     * windowed rate based on the last few seconds of pre-stop work. */
+    if (!mining_running) return 0.0;
 
     uint64_t now = now_monotonic_ms();
     uint64_t window_ms = (uint64_t)(seconds * 1000.0);
