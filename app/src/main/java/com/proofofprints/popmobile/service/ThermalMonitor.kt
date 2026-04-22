@@ -220,13 +220,25 @@ class ThermalMonitor(private val context: Context) {
                             return@forEach
                         }
 
+                        // On Qualcomm PMIC the zone literally named "soc"
+                        // is State of Charge (battery %), not System-on-Chip
+                        // temperature. Ignore it.
+                        if (type.equals("soc", ignoreCase = true)) {
+                            return@forEach
+                        }
+
                         // Most zones report in millidegrees
                         val tempC = if (rawTemp > 1000) rawTemp / 1000.0f else rawTemp
 
+                        // Sanity range: phones don't operate outside -20..125 °C,
+                        // anything else is a sensor reporting something that
+                        // isn't temperature (state-of-charge, voltage, trip
+                        // threshold, disabled sensor stuck at -40000 or 0).
+                        if (tempC < -20f || tempC > 125f) return@forEach
+
                         // Prefer CPU-related zones
                         if (type.contains("cpu", ignoreCase = true) ||
-                            type.contains("tsens", ignoreCase = true) ||
-                            type.contains("soc", ignoreCase = true)) {
+                            type.contains("tsens", ignoreCase = true)) {
                             if (tempC > maxTemp) {
                                 maxTemp = tempC
                                 maxZone = zone.name
