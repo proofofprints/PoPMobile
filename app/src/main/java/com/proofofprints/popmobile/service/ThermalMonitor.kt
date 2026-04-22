@@ -186,9 +186,17 @@ class ThermalMonitor(private val context: Context) {
      * Read from /sys/class/thermal/thermal_zone* as a raw-temperature source.
      * Many OEMs restrict these on retail Android; we fall through to battery
      * temperature in that case.
+     *
+     * On Qualcomm Bengal (TCL A3X) several zones named `*-step` / `*-max-step`
+     * report the trip-point threshold (e.g. 100000 mC = 100 °C) rather than a
+     * live temperature — so we skip anything whose type looks like a trip
+     * reporter, and log which zone contributed the winning reading so future
+     * mis-calibration is diagnosable from logcat.
      */
     private fun readThermalZones(): Float {
         var maxTemp = 0.0f
+        var maxZone = ""
+        var maxType = ""
 
         try {
             val thermalDir = File("/sys/class/thermal/")
@@ -203,6 +211,15 @@ class ThermalMonitor(private val context: Context) {
                         val type = if (typeFile.exists()) typeFile.readText().trim() else ""
                         val rawTemp = tempFile.readText().trim().toFloatOrNull() ?: return@forEach
 
+                        // Skip zones that report trip-point thresholds, not
+                        // live temperatures. On Bengal these sit at a fixed
+                        // 95–100 °C and dominate the max when the device is
+                        // cold.
+                        if (type.contains("step", ignoreCase = true) ||
+                            type.contains("trip", ignoreCase = true)) {
+                            return@forEach
+                        }
+
                         // Most zones report in millidegrees
                         val tempC = if (rawTemp > 1000) rawTemp / 1000.0f else rawTemp
 
@@ -210,9 +227,15 @@ class ThermalMonitor(private val context: Context) {
                         if (type.contains("cpu", ignoreCase = true) ||
                             type.contains("tsens", ignoreCase = true) ||
                             type.contains("soc", ignoreCase = true)) {
-                            if (tempC > maxTemp) maxTemp = tempC
+                            if (tempC > maxTemp) {
+                                maxTemp = tempC
+                                maxZone = zone.name
+                                maxType = type
+                            }
                         } else if (maxTemp == 0.0f && tempC > 0) {
                             maxTemp = tempC
+                            maxZone = zone.name
+                            maxType = type
                         }
                     }
                 } catch (e: Exception) {
@@ -223,6 +246,9 @@ class ThermalMonitor(private val context: Context) {
             Log.d(TAG, "Cannot read thermal zones: ${e.message}")
         }
 
+        if (maxTemp > 0f) {
+            Log.d(TAG, "thermal max=$maxTemp°C from $maxZone ($maxType)")
+        }
         return maxTemp
     }
 
