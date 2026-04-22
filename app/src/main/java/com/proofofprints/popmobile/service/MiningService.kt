@@ -464,7 +464,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
         var tickCount = 0L
         var lastPerThreadHashes = LongArray(0)
         var lastPerThreadTickMs = 0L
-        Log.i(TAG, "statsUpdateLoop ENTERED (engineRunning=${miningEngine.isRunning} paused=$thermalPaused)")
+        Log.i(TAG, "statsUpdateLoop ENTERED [${com.proofofprints.popmobile.mining.MiningEngine.BUILD_MARKER}] (engineRunning=${miningEngine.isRunning} paused=$thermalPaused)")
         while (miningEngine.isRunning || thermalPaused) {
             Log.i(TAG, "TICK #$tickCount begin")
             // Thermal check every cycle
