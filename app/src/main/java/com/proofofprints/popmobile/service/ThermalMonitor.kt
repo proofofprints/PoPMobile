@@ -247,7 +247,7 @@ class ThermalMonitor(private val context: Context) {
         }
 
         if (maxTemp > 0f) {
-            Log.d(TAG, "thermal max=$maxTemp°C from $maxZone ($maxType)")
+            Log.i(TAG, "thermal max=$maxTemp°C from $maxZone ($maxType)")
         }
         return maxTemp
     }
