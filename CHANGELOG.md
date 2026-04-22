@@ -4,15 +4,14 @@ All notable changes to PoPMobile are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [1.0.14] — 2026-04-21
+### Fixed
+- **Landscape mode scrolling.** Rotating the phone to landscape hid the **START MINING** button below the fold with no way to scroll to it. The dashboard now switches to a scrollable layout when the device is in landscape while keeping the portrait design (weighted spacer, button anchored near the bottom) intact.
+- **Decimal separator in numeric displays.** Hashrate, hash total, difficulty, notification text, and update-size formatting were rendering with locale-dependent separators — e.g. `1,52 MH/s` instead of `1.52 MH/s` on French/German/etc. systems. All user-visible number formats now explicitly use `Locale.US` so the decimal is always a period.
+
 ### Changed
 - **Thermal status uses the OS's bucket directly** on Android 10+ (API 29+). Previously we translated `PowerManager.getCurrentThermalStatus()` into a synthetic CPU temperature and then ran that through our 45/50/55°C thresholds — a round-trip that lost fidelity. Now the OS bucket maps straight onto our `NORMAL / WARNING / THROTTLE / CRITICAL` state, so the THERMAL card reflects what the OS actually thinks regardless of whether raw sensor files are readable.
 - **TEMP card falls back to battery temperature** when CPU thermal zones are locked down (common on retail Android where OEMs restrict `/sys/class/thermal/`). Battery sits next to the SoC on every phone, so its temperature is a decent proxy during mining — previously these devices showed `--`, now they show a useful number.
 - **Battery percent falls back** to `Intent.ACTION_BATTERY_CHANGED`'s `EXTRA_LEVEL / EXTRA_SCALE` when `BatteryManager.BATTERY_PROPERTY_CAPACITY` returns −1 or 0 (some OEMs don't implement the newer API reliably). BATTERY should now read correctly on every Android phone.
-
-## [1.0.13] — 2026-04-21
-### Fixed
-- **Landscape mode scrolling.** Rotating the phone to landscape hid the **START MINING** button below the fold with no way to scroll to it. The dashboard now switches to a scrollable layout when the device is in landscape while keeping the portrait design (weighted spacer, button anchored near the bottom) intact.
-- **Decimal separator in numeric displays.** Hashrate, hash total, difficulty, notification text, and update-size formatting were rendering with locale-dependent separators — e.g. `1,52 MH/s` instead of `1.52 MH/s` on French/German/etc. systems. All user-visible number formats now explicitly use `Locale.US` so the decimal is always a period.
 
 ## [1.0.12] — 2026-04-21
 ### Changed
@@ -98,7 +97,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - PoPManager pairing with per-device API keys, telemetry every 30 s, and remote commands (`set_config`, `set_threads`, `start`, `stop`, `restart`) applied and acknowledged.
 
 [1.0.14]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.14
-[1.0.13]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.13
 [1.0.12]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.12
 [1.0.11]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.11
 [1.0.10]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.10
