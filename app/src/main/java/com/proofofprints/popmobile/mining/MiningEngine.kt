@@ -18,6 +18,27 @@ class MiningEngine {
         }
     }
 
+    /** Guard newly-added JNI methods so an out-of-date .so (partial rebuild)
+     *  degrades to a zero reading instead of killing whoever called us with
+     *  an UnsatisfiedLinkError. We log the first occurrence only per method
+     *  so the Kotlin/native mismatch is visible without spamming logcat. */
+    private val linkageWarned = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    private inline fun safeCallDouble(name: String, call: () -> Double): Double =
+        try { call() } catch (e: LinkageError) { warnLinkage(name, e); 0.0 }
+
+    private inline fun safeCallLong(name: String, call: () -> Long): Long =
+        try { call() } catch (e: LinkageError) { warnLinkage(name, e); 0L }
+
+    private inline fun safeCallInt(name: String, call: () -> Int): Int =
+        try { call() } catch (e: LinkageError) { warnLinkage(name, e); 0 }
+
+    private fun warnLinkage(name: String, e: LinkageError) {
+        if (linkageWarned.add(name)) {
+            Log.e(TAG, "JNI $name missing — stale libpopmobile.so? Rebuild native. (${e.message})")
+        }
+    }
+
     interface ShareCallback {
         fun onShareFound(jobId: String, nonce: Long)
     }
@@ -42,25 +63,28 @@ class MiningEngine {
     /** Session-average hashrate (hashes since start / elapsed seconds).
      *  Smooths out real variation — use [hashrateWindow] for live display. */
     val hashrate: Double
-        get() = nativeGetHashrate()
+        get() = safeCallDouble("nativeGetHashrate") { nativeGetHashrate() }
 
     /** Hashrate over the most recent [seconds] of mining (sliding window).
      *  Prefer 10s for live UI, 60s for telemetry, 900s for steady-state. */
-    fun hashrateWindow(seconds: Double): Double = nativeGetHashrateWindow(seconds)
+    fun hashrateWindow(seconds: Double): Double =
+        safeCallDouble("nativeGetHashrateWindow") { nativeGetHashrateWindow(seconds) }
 
     /** 10-second live hashrate — what the device is hashing at right now. */
-    val hashrate10s: Double get() = nativeGetHashrateWindow(10.0)
+    val hashrate10s: Double get() = hashrateWindow(10.0)
 
     /** 60-second hashrate — smoothed for telemetry. */
-    val hashrate60s: Double get() = nativeGetHashrateWindow(60.0)
+    val hashrate60s: Double get() = hashrateWindow(60.0)
 
     /** 15-minute hashrate — thermal-steady-state. */
-    val hashrate15min: Double get() = nativeGetHashrateWindow(900.0)
+    val hashrate15min: Double get() = hashrateWindow(900.0)
 
     /** Raw per-thread hash counter, for spotting a stuck worker. */
-    fun threadHashes(threadIdx: Int): Long = nativeGetThreadHashes(threadIdx)
+    fun threadHashes(threadIdx: Int): Long =
+        safeCallLong("nativeGetThreadHashes") { nativeGetThreadHashes(threadIdx) }
 
-    val activeThreads: Int get() = nativeGetActiveThreads()
+    val activeThreads: Int
+        get() = safeCallInt("nativeGetActiveThreads") { nativeGetActiveThreads() }
 
     val totalHashes: Long
         get() = nativeGetTotalHashes()
