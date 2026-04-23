@@ -44,6 +44,7 @@ import com.proofofprints.popmobile.BuildConfig
 import com.proofofprints.popmobile.LogLevel
 import com.proofofprints.popmobile.LogManager
 import com.proofofprints.popmobile.R
+import com.proofofprints.popmobile.service.MiningPreferences
 import com.proofofprints.popmobile.service.MiningService
 import com.proofofprints.popmobile.update.UpdateChecker
 import com.proofofprints.popmobile.update.UpdateDialog
@@ -857,6 +858,9 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            // ========= PROTECTION (thermal + power) =========
+            ProtectionSettingsCard()
+
             // ========= POPMANAGER INTEGRATION =========
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -1112,6 +1116,349 @@ class MainActivity : ComponentActivity() {
                 Text("SAVE", color = Color.Black, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             }
         }
+    }
+
+    /** Thermal + power management settings. All knobs read from and write
+     *  through [MiningPreferences] so the running MiningService picks them
+     *  up on its next 3-second tick without needing a restart. */
+    @Composable
+    fun ProtectionSettingsCard() {
+        val prefs = remember { MiningPreferences(applicationContext) }
+
+        var thermalEnabled by remember { mutableStateOf(prefs.thermalProtectionEnabled) }
+        var warnTemp by remember { mutableStateOf(prefs.warnTempC) }
+        var throttleTemp by remember { mutableStateOf(prefs.throttleTempC) }
+        var pauseTemp by remember { mutableStateOf(prefs.pauseTempC) }
+        var resumeTemp by remember { mutableStateOf(prefs.resumeTempC) }
+
+        var externalPower by remember { mutableStateOf(prefs.externalPowerMode) }
+        var requireCharging by remember { mutableStateOf(prefs.requireCharging) }
+        var batteryCutoff by remember { mutableStateOf(prefs.batteryCutoffPercent) }
+
+        var showDisableDialog by remember { mutableStateOf(false) }
+        var showExtPowerDialog by remember { mutableStateOf(false) }
+
+        val accent = Color(0xFF49EACB)
+        val warningColor = Color(0xFFFF6B6B)
+        val labelColor = Color.White
+        val subColor = Color.Gray
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "PROTECTION",
+                    color = accent,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+
+                // ----- Thermal protection master switch -----
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Thermal protection",
+                            color = labelColor,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            if (thermalEnabled)
+                                "Pause / throttle mining when hot"
+                            else
+                                "DISABLED — device may overheat",
+                            color = if (thermalEnabled) subColor else warningColor,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Switch(
+                        checked = thermalEnabled,
+                        onCheckedChange = { newValue ->
+                            if (!newValue) {
+                                showDisableDialog = true
+                            } else {
+                                thermalEnabled = true
+                                prefs.thermalProtectionEnabled = true
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = accent,
+                            checkedTrackColor = accent.copy(alpha = 0.4f)
+                        )
+                    )
+                }
+
+                if (thermalEnabled) {
+                    TempSlider(
+                        label = "Warn at",
+                        value = warnTemp,
+                        color = Color(0xFFFFD700),
+                        onValueChange = {
+                            warnTemp = it
+                            prefs.warnTempC = it
+                        }
+                    )
+                    TempSlider(
+                        label = "Throttle at (halve threads)",
+                        value = throttleTemp,
+                        color = Color(0xFFFFA500),
+                        onValueChange = {
+                            throttleTemp = it
+                            prefs.throttleTempC = it
+                        }
+                    )
+                    TempSlider(
+                        label = "Pause at",
+                        value = pauseTemp,
+                        color = warningColor,
+                        onValueChange = {
+                            pauseTemp = it
+                            prefs.pauseTempC = it
+                        }
+                    )
+                    TempSlider(
+                        label = "Resume below",
+                        value = resumeTemp,
+                        color = accent,
+                        onValueChange = {
+                            resumeTemp = it
+                            prefs.resumeTempC = it
+                        }
+                    )
+                    if (!(warnTemp < throttleTemp && throttleTemp < pauseTemp && resumeTemp < pauseTemp)) {
+                        Text(
+                            "Thresholds should satisfy: Resume < Pause, Warn < Throttle < Pause.",
+                            color = warningColor,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "POWER",
+                    color = accent,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+
+                // ----- External power mode -----
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "External power mode",
+                            color = labelColor,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            "CellHasher / bench PSU / battery-bypassed rig. Skips battery checks.",
+                            color = subColor,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Switch(
+                        checked = externalPower,
+                        onCheckedChange = { newValue ->
+                            if (newValue) {
+                                showExtPowerDialog = true
+                            } else {
+                                externalPower = false
+                                prefs.externalPowerMode = false
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = accent,
+                            checkedTrackColor = accent.copy(alpha = 0.4f)
+                        )
+                    )
+                }
+
+                // ----- Require charging -----
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Require charging to mine",
+                            color = if (externalPower) subColor else labelColor,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            if (externalPower)
+                                "Ignored in external-power mode"
+                            else
+                                "Pause mining when unplugged",
+                            color = subColor,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Switch(
+                        checked = requireCharging,
+                        enabled = !externalPower,
+                        onCheckedChange = { newValue ->
+                            requireCharging = newValue
+                            prefs.requireCharging = newValue
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = accent,
+                            checkedTrackColor = accent.copy(alpha = 0.4f)
+                        )
+                    )
+                }
+
+                // ----- Battery cutoff -----
+                Text(
+                    "Battery cutoff: $batteryCutoff%" +
+                        (if (externalPower) " (ignored)" else ""),
+                    color = if (externalPower) subColor else labelColor,
+                    fontFamily = FontFamily.Monospace
+                )
+                Slider(
+                    value = batteryCutoff.toFloat(),
+                    onValueChange = {
+                        val v = it.toInt()
+                        batteryCutoff = v
+                        prefs.batteryCutoffPercent = v
+                    },
+                    valueRange = MiningPreferences.BATT_CUTOFF_MIN.toFloat()
+                        ..MiningPreferences.BATT_CUTOFF_MAX.toFloat(),
+                    enabled = !externalPower,
+                    colors = SliderDefaults.colors(
+                        thumbColor = accent,
+                        activeTrackColor = accent
+                    )
+                )
+                Text(
+                    "Pause mining when battery drops below this percentage.",
+                    color = subColor,
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+        }
+
+        // ----- Confirmation dialogs -----
+
+        if (showDisableDialog) {
+            AlertDialog(
+                onDismissRequest = { showDisableDialog = false },
+                title = {
+                    Text(
+                        "Disable thermal protection?",
+                        color = warningColor,
+                        fontFamily = FontFamily.Monospace
+                    )
+                },
+                text = {
+                    Text(
+                        "Without thermal limits, the miner will run until the OS " +
+                            "emergency-shuts the device down. This can permanently " +
+                            "damage your phone's battery or SoC. Only enable with " +
+                            "active cooling (e.g. a fan, peltier, or CellHasher rig).",
+                        color = Color.White,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        thermalEnabled = false
+                        prefs.thermalProtectionEnabled = false
+                        showDisableDialog = false
+                    }) {
+                        Text("DISABLE", color = warningColor, fontFamily = FontFamily.Monospace)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDisableDialog = false }) {
+                        Text("Cancel", color = accent, fontFamily = FontFamily.Monospace)
+                    }
+                },
+                containerColor = Color(0xFF1A1A2E)
+            )
+        }
+
+        if (showExtPowerDialog) {
+            AlertDialog(
+                onDismissRequest = { showExtPowerDialog = false },
+                title = {
+                    Text(
+                        "Enable external power mode?",
+                        color = accent,
+                        fontFamily = FontFamily.Monospace
+                    )
+                },
+                text = {
+                    Text(
+                        "Use this when the phone is powered by a CellHasher, bench " +
+                            "PSU, or has the battery physically bypassed. Battery " +
+                            "percentage, charging detection, and low-battery cutoff " +
+                            "will all be skipped. If thermal protection is also " +
+                            "disabled, nothing will stop the miner short of hardware " +
+                            "failure.",
+                        color = Color.White,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        externalPower = true
+                        prefs.externalPowerMode = true
+                        showExtPowerDialog = false
+                    }) {
+                        Text("ENABLE", color = accent, fontFamily = FontFamily.Monospace)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showExtPowerDialog = false }) {
+                        Text("Cancel", color = Color.Gray, fontFamily = FontFamily.Monospace)
+                    }
+                },
+                containerColor = Color(0xFF1A1A2E)
+            )
+        }
+    }
+
+    @Composable
+    private fun TempSlider(
+        label: String,
+        value: Float,
+        color: Color,
+        onValueChange: (Float) -> Unit
+    ) {
+        Text(
+            "$label: ${value.toInt()}°C",
+            color = Color.White,
+            fontFamily = FontFamily.Monospace
+        )
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = MiningPreferences.TEMP_SLIDER_MIN..MiningPreferences.TEMP_SLIDER_MAX,
+            colors = SliderDefaults.colors(
+                thumbColor = color,
+                activeTrackColor = color
+            )
+        )
     }
 
     @Composable

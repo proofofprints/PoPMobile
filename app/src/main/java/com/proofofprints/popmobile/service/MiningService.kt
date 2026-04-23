@@ -50,6 +50,10 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
     private lateinit var thermalMonitor: ThermalMonitor
+    /** User preferences for thermal thresholds, external-power mode, etc.
+     *  Shared with ThermalMonitor so both sides see the same config. */
+    lateinit var preferences: MiningPreferences
+        private set
     @Volatile
     private var isStopping: Boolean = false
 
@@ -73,6 +77,13 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     var activeThreads: Int = 0
         private set
     private var thermalPaused: Boolean = false
+    /** Monotonic-ms timestamp of when displayTemp first dipped below the
+     *  resume threshold after a pause. Used to hold off resuming until the
+     *  drop has been sustained for [RESUME_HOLD_MS], preventing thrash. */
+    private var coolingSince: Long = 0L
+    /** How long the temperature must stay below resumeTempC before we'll
+     *  bring mining back up from a thermal pause. */
+    private val RESUME_HOLD_MS = 30_000L
 
     // Stats exposed to UI — `hashrate` is the live (10s windowed) rate so the
     // user sees what the device is actually hashing at right now, not a lifetime
@@ -111,7 +122,8 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
         super.onCreate()
         createNotificationChannel()
         miningEngine.setShareCallback(this)
-        thermalMonitor = ThermalMonitor(this)
+        preferences = MiningPreferences(this)
+        thermalMonitor = ThermalMonitor(this, preferences)
         popManagerReporter = PoPManagerReporter(this, buildStatsProvider())
         popManagerReporter.setCommandExecutor(buildCommandExecutor())
 
@@ -530,6 +542,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
                         Log.w(TAG, "THERMAL CRITICAL (${cpuTemp}°C) — pausing mining!")
                         miningEngine.stop()
                         thermalPaused = true
+                        coolingSince = 0L
                         activeThreads = 0
                         onThermalWarning?.invoke(status.thermalState, cpuTemp)
                     }
@@ -545,17 +558,48 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
                     }
                 }
                 ThermalMonitor.ThermalState.NORMAL -> {
-                    // Resume from thermal pause if cooled down
+                    // Resume from thermal pause once temp has stayed below the
+                    // user-configurable resume threshold for RESUME_HOLD_MS.
+                    // The hysteresis gap between pauseTempC and resumeTempC
+                    // plus this hold period prevents pause/resume thrashing.
                     if (thermalPaused && !miningEngine.isRunning) {
-                        Log.i(TAG, "Thermal normal (${cpuTemp}°C) — resuming mining")
-                        miningEngine.start(threadCount)
-                        activeThreads = threadCount
-                        thermalPaused = false
+                        val nowMs = System.currentTimeMillis()
+                        if (cpuTemp > 0f && cpuTemp <= preferences.resumeTempC) {
+                            if (coolingSince == 0L) {
+                                coolingSince = nowMs
+                                Log.i(TAG, "Cooling observed (${cpuTemp}°C ≤ ${preferences.resumeTempC}°C) — holding for ${RESUME_HOLD_MS / 1000}s before resume")
+                            } else if (nowMs - coolingSince >= RESUME_HOLD_MS) {
+                                Log.i(TAG, "Cooldown complete (${cpuTemp}°C) — resuming mining")
+                                miningEngine.start(threadCount)
+                                activeThreads = threadCount
+                                thermalPaused = false
+                                coolingSince = 0L
+                            }
+                        } else {
+                            coolingSince = 0L
+                        }
                     }
                 }
                 ThermalMonitor.ThermalState.WARNING -> {
+                    coolingSince = 0L
                     onThermalWarning?.invoke(status.thermalState, cpuTemp)
                 }
+            }
+
+            // Power-gate: if the user requires charging and we're not plugged
+            // in (and not on an external-power rig), pause the engine. Battery
+            // cutoff is handled by ThermalMonitor as a CRITICAL state.
+            if (status != null
+                && !preferences.externalPowerMode
+                && preferences.requireCharging
+                && !status.isCharging
+                && miningEngine.isRunning
+            ) {
+                Log.w(TAG, "Unplugged while requireCharging=true — pausing")
+                miningEngine.stop()
+                thermalPaused = true
+                coolingSince = 0L
+                activeThreads = 0
             }
 
             updateNotification()

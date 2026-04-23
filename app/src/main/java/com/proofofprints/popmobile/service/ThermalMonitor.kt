@@ -18,21 +18,13 @@ import android.os.PowerManager
 import android.util.Log
 import java.io.File
 
-class ThermalMonitor(private val context: Context) {
+class ThermalMonitor(
+    private val context: Context,
+    private val prefs: MiningPreferences = MiningPreferences(context)
+) {
 
     companion object {
         private const val TAG = "ThermalMonitor"
-
-        /** Temperature thresholds in Celsius — used only when we have a real
-         *  raw sensor reading. When the system exposes a bucketed thermal
-         *  status via PowerManager we use that directly instead. */
-        const val TEMP_WARNING = 45.0f
-        const val TEMP_THROTTLE = 50.0f   // Reduce threads at this temp
-        const val TEMP_CRITICAL = 55.0f   // Pause mining entirely
-
-        /** Battery thresholds */
-        const val BATTERY_LOW = 20        // Warn user
-        const val BATTERY_CRITICAL = 10   // Pause mining
     }
 
     enum class ThermalState {
@@ -71,22 +63,23 @@ class ThermalMonitor(private val context: Context) {
         val batteryTemp = readBatteryTemperature(batteryIntent)
 
         val cpuTemp = readCpuTemperature()
-        // Display temp: CPU if we have it, otherwise fall back to battery
-        // temperature. Battery sits right next to the SoC so it's a decent
-        // proxy when thermal_zone is locked down.
-        val displayTemp = if (cpuTemp > 0f) cpuTemp else batteryTemp
+        // Display temp: CPU if we have it. In external-power mode the battery
+        // may be bypassed/absent so its temperature is noise — don't fall back
+        // to it. Otherwise battery temp is a decent SoC proxy when thermal_zone
+        // is locked down.
+        val displayTemp = when {
+            cpuTemp > 0f -> cpuTemp
+            prefs.externalPowerMode -> 0f
+            else -> batteryTemp
+        }
 
-        // Direct PowerManager thermal status is the truthiest signal when
-        // available. Fall back to our temperature threshold logic if not.
-        val thermalStateFromOs = readOsThermalState()
-        val thermalState = when {
-            thermalStateFromOs != null -> combineWithBattery(thermalStateFromOs, batteryPercent, isCharging)
-            displayTemp >= TEMP_CRITICAL -> ThermalState.CRITICAL
-            displayTemp >= TEMP_THROTTLE -> ThermalState.THROTTLE
-            displayTemp >= TEMP_WARNING -> ThermalState.WARNING
-            batteryPercent in 1..BATTERY_CRITICAL && !isCharging -> ThermalState.CRITICAL
-            batteryPercent in 1..BATTERY_LOW && !isCharging -> ThermalState.WARNING
-            else -> ThermalState.NORMAL
+        // If the user has disabled thermal protection outright, never escalate
+        // past NORMAL — the UI still shows the real temp (so they can monitor)
+        // but MiningService won't act on it.
+        val thermalState = if (!prefs.thermalProtectionEnabled) {
+            ThermalState.NORMAL
+        } else {
+            computeThermalState(displayTemp, batteryPercent, isCharging)
         }
 
         val recommendedThreads = when (thermalState) {
@@ -103,6 +96,26 @@ class ThermalMonitor(private val context: Context) {
             thermalState = thermalState,
             recommendedThreads = recommendedThreads
         )
+    }
+
+    /** Combine user-configurable thresholds, the OS thermal bucket (API 29+),
+     *  and battery state into a single severity. Battery is ignored entirely
+     *  in external-power mode since its reading isn't reliable there. */
+    private fun computeThermalState(
+        displayTemp: Float,
+        batteryPercent: Int,
+        isCharging: Boolean
+    ): ThermalState {
+        val osState = readOsThermalState()
+        val tempState = when {
+            osState != null -> osState
+            displayTemp >= prefs.pauseTempC -> ThermalState.CRITICAL
+            displayTemp >= prefs.throttleTempC -> ThermalState.THROTTLE
+            displayTemp >= prefs.warnTempC -> ThermalState.WARNING
+            else -> ThermalState.NORMAL
+        }
+        if (prefs.externalPowerMode) return tempState
+        return combineWithBattery(tempState, batteryPercent, isCharging)
     }
 
     /**
@@ -131,16 +144,20 @@ class ThermalMonitor(private val context: Context) {
     }
 
     /** Roll battery-level concerns into the OS thermal decision — low
-     *  battery outranks a NORMAL thermal state but not a CRITICAL one. */
+     *  battery outranks a NORMAL thermal state but not a CRITICAL one.
+     *  The cutoff is user-configurable; WARNING fires at 2× the cutoff so
+     *  the user sees a heads-up before we pause. */
     private fun combineWithBattery(
         os: ThermalState,
         batteryPercent: Int,
         isCharging: Boolean
     ): ThermalState {
         if (isCharging || batteryPercent <= 0) return os
+        val cutoff = prefs.batteryCutoffPercent
+        val warnLevel = (cutoff * 2).coerceAtMost(50)
         val batteryState = when {
-            batteryPercent <= BATTERY_CRITICAL -> ThermalState.CRITICAL
-            batteryPercent <= BATTERY_LOW -> ThermalState.WARNING
+            batteryPercent <= cutoff -> ThermalState.CRITICAL
+            batteryPercent <= warnLevel -> ThermalState.WARNING
             else -> ThermalState.NORMAL
         }
         // ThermalState enum is declared in severity order, ordinal == severity.
