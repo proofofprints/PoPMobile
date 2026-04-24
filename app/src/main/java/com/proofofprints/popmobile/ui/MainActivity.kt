@@ -57,18 +57,20 @@ class MainActivity : ComponentActivity() {
     private var miningService: MiningService? = null
     private var serviceBound = mutableStateOf(false)
 
-    // Callback registered when launchWalletQrScanner is called, invoked when
-    // the ZXing scanner activity returns a result.
-    private var pendingScanResult: ((String) -> Unit)? = null
+    // Callback registered when launchWalletQrScanner / launchPairingQrScanner
+    // is called, invoked once the ZXing scanner activity returns a result.
+    // The handler receives the raw scanned string and is responsible for
+    // whichever parsing it needs (wallet address vs PoPManager pairing JSON).
+    private var pendingScanHandler: ((String) -> Unit)? = null
 
     private val qrScanLauncher = registerForActivityResult(
         com.journeyapps.barcodescanner.ScanContract()
     ) { result ->
-        val cb = pendingScanResult
-        pendingScanResult = null
+        val cb = pendingScanHandler
+        pendingScanHandler = null
         val raw = result.contents
         if (raw == null || cb == null) return@registerForActivityResult
-        handleScannedWalletAddress(raw, cb)
+        cb(raw)
     }
 
     private val serviceConnection = object : ServiceConnection {
@@ -966,6 +968,29 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    // Scan pairing QR displayed by PoPManager. On success we
+                    // fill both the Server URL and Pairing Code fields so the
+                    // user can tap Pair without typing anything.
+                    OutlinedButton(
+                        onClick = {
+                            launchPairingQrScanner { scannedUrl, scannedCode ->
+                                popServerUrl = scannedUrl
+                                popPairingCode = scannedCode
+                                popTestResult = null
+                                popPairResult = null
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            "SCAN PAIRING QR",
+                            color = Color(0xFF49EACB),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+
                     MinerTextField(
                         "Server URL (http://host:8787)",
                         popServerUrl
@@ -1561,21 +1586,74 @@ class MainActivity : ComponentActivity() {
      *  Play Services download. The camera permission is requested by the
      *  ZXing activity itself if not yet granted. */
     private fun launchWalletQrScanner(onResult: (String) -> Unit) {
-        pendingScanResult = onResult
-        val options = com.journeyapps.barcodescanner.ScanOptions().apply {
+        pendingScanHandler = { raw -> handleScannedWalletAddress(raw, onResult) }
+        qrScanLauncher.launch(defaultScanOptions())
+    }
+
+    /** Launch the shared QR scanner for PoPManager pairing. On a successful
+     *  scan + JSON validation, [onResult] receives (serverUrl, pairingCode)
+     *  so the caller can drop them straight into the matching text fields. */
+    private fun launchPairingQrScanner(onResult: (server: String, code: String) -> Unit) {
+        pendingScanHandler = { raw -> handleScannedPairingCode(raw, onResult) }
+        qrScanLauncher.launch(defaultScanOptions())
+    }
+
+    private fun defaultScanOptions(): com.journeyapps.barcodescanner.ScanOptions =
+        com.journeyapps.barcodescanner.ScanOptions().apply {
             setDesiredBarcodeFormats(com.journeyapps.barcodescanner.ScanOptions.QR_CODE)
             setBeepEnabled(false)
             setOrientationLocked(true)
             setBarcodeImageEnabled(false)
-            // Use our custom portrait scanner with square framing box
             captureActivity = QrScannerActivity::class.java
         }
-        qrScanLauncher.launch(options)
+
+    /** Parse a PoPManager pairing QR payload of the form:
+     *   {"v":1,"type":"popmanager-register","url":"...","code":"..."}
+     *  On success calls [onResult] with the extracted server URL + code.
+     *  On any validation failure shows a toast and returns. */
+    private fun handleScannedPairingCode(
+        raw: String,
+        onResult: (server: String, code: String) -> Unit
+    ) {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) {
+            toast("QR code was empty")
+            return
+        }
+        val parsed = try {
+            com.google.gson.JsonParser.parseString(trimmed).asJsonObject
+        } catch (e: Exception) {
+            toast("Not a PoPManager QR code")
+            return
+        }
+        val type = parsed.get("type")?.asString
+        if (type != "popmanager-register") {
+            toast("Not a PoPManager QR code")
+            return
+        }
+        val version = parsed.get("v")?.asInt ?: 0
+        if (version > 1) {
+            toast("Update PoPMiner Mobile to scan this code")
+            return
+        }
+        val url = parsed.get("url")?.asString?.trim().orEmpty()
+        val code = parsed.get("code")?.asString?.trim().orEmpty()
+        if (url.isEmpty() || code.isEmpty()) {
+            toast("QR is missing server URL or code")
+            return
+        }
+        onResult(url, code)
+        LogManager.info("Scanned PoPManager pairing QR: $url")
+        toast("Pairing QR scanned")
     }
 
-    /** Parse and validate a scanned QR string, then hand the extracted
-     *  Kaspa address to [onResult]. Handles bare addresses, URI-wrapped forms,
-     *  and addresses with query params. */
+    private fun toast(msg: String) {
+        android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_SHORT).show()
+    }
+
+    /** Parse and validate a scanned Kaspa-address QR string, then hand the
+     *  extracted address to [onResult]. Handles bare addresses, URI-wrapped
+     *  forms, and addresses with query params. */
     private fun handleScannedWalletAddress(raw: String, onResult: (String) -> Unit) {
         val trimmed = raw.trim()
         if (trimmed.isEmpty()) {
