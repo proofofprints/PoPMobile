@@ -99,21 +99,27 @@ class ThermalMonitor(
     }
 
     /** Combine user-configurable thresholds, the OS thermal bucket (API 29+),
-     *  and battery state into a single severity. Battery is ignored entirely
-     *  in external-power mode since its reading isn't reliable there. */
+     *  and battery state into a single severity. The user's thresholds ALWAYS
+     *  win when they escalate higher than the OS bucket — vendor thresholds
+     *  are generally tuned for casual workloads and won't fire until the SoC
+     *  is dangerously hot, so a user who sets an aggressive pause at 70 °C
+     *  should see mining pause at 70 °C regardless of what PowerManager says.
+     *  Battery is ignored entirely in external-power mode. */
     private fun computeThermalState(
         displayTemp: Float,
         batteryPercent: Int,
         isCharging: Boolean
     ): ThermalState {
-        val osState = readOsThermalState()
-        val tempState = when {
-            osState != null -> osState
+        val osState = readOsThermalState() ?: ThermalState.NORMAL
+        val thresholdState = when {
             displayTemp >= prefs.pauseTempC -> ThermalState.CRITICAL
             displayTemp >= prefs.throttleTempC -> ThermalState.THROTTLE
             displayTemp >= prefs.warnTempC -> ThermalState.WARNING
             else -> ThermalState.NORMAL
         }
+        // ThermalState ordinal is severity — pick whichever source is more
+        // conservative.
+        val tempState = if (thresholdState.ordinal >= osState.ordinal) thresholdState else osState
         if (prefs.externalPowerMode) return tempState
         return combineWithBattery(tempState, batteryPercent, isCharging)
     }

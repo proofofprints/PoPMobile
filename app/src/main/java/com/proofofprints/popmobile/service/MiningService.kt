@@ -85,6 +85,20 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
      *  bring mining back up from a thermal pause. */
     private val RESUME_HOLD_MS = 30_000L
 
+    /** Banner to show above the Start/Stop button so the user can tell at a
+     *  glance why mining has been paused, throttled, or is running with
+     *  reduced protections. Updated every tick. */
+    enum class ProtectionSeverity { NONE, INFO, WARNING, CRITICAL }
+
+    @Volatile var protectionMessage: String = ""
+        private set
+    @Volatile var protectionSeverity: ProtectionSeverity = ProtectionSeverity.NONE
+        private set
+
+    /** Last protection message we emitted to the log — stops us spamming
+     *  LogManager on every 3-second tick. */
+    private var lastLoggedProtectionMessage: String = ""
+
     // Stats exposed to UI — `hashrate` is the live (10s windowed) rate so the
     // user sees what the device is actually hashing at right now, not a lifetime
     // average that smears over throttling events.
@@ -589,17 +603,39 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
             // Power-gate: if the user requires charging and we're not plugged
             // in (and not on an external-power rig), pause the engine. Battery
             // cutoff is handled by ThermalMonitor as a CRITICAL state.
-            if (status != null
+            val unpluggedPause = status != null
                 && !preferences.externalPowerMode
                 && preferences.requireCharging
                 && !status.isCharging
-                && miningEngine.isRunning
-            ) {
+            if (unpluggedPause && miningEngine.isRunning) {
                 Log.w(TAG, "Unplugged while requireCharging=true — pausing")
                 miningEngine.stop()
                 thermalPaused = true
                 coolingSince = 0L
                 activeThreads = 0
+            }
+
+            // Recompute the user-visible protection banner every tick. Order
+            // matters: critical conditions win over informational ones so the
+            // user sees the worst signal first.
+            val (newSeverity, newMessage) = computeProtectionBanner(status, unpluggedPause)
+            if (newMessage != protectionMessage) {
+                val oldMessage = protectionMessage
+                protectionMessage = newMessage
+                protectionSeverity = newSeverity
+                // Only log meaningful transitions, not every "" → "" flicker
+                if (newMessage.isNotEmpty() || oldMessage.isNotEmpty()) {
+                    val transition = if (newMessage.isEmpty()) "cleared ($oldMessage)" else newMessage
+                    Log.i(TAG, "PROTECTION $transition")
+                    if (newMessage != lastLoggedProtectionMessage) {
+                        when (newSeverity) {
+                            ProtectionSeverity.CRITICAL -> LogManager.warn("Protection: $transition")
+                            ProtectionSeverity.WARNING -> LogManager.warn("Protection: $transition")
+                            else -> LogManager.info("Protection: $transition")
+                        }
+                        lastLoggedProtectionMessage = newMessage
+                    }
+                }
             }
 
             updateNotification()
@@ -779,13 +815,64 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
 
     private fun updateNotification(status: String? = null) {
         val thermalInfo = if (cpuTemp > 0) " | ${cpuTemp.toInt()}°C" else ""
+        val protection = protectionMessage
+            .takeIf { it.isNotEmpty() }
+            ?.let { " · $it" } ?: ""
         val text = status ?: String.format(
             java.util.Locale.US,
-            "%.2f H/s | A:%d R:%d%s",
-            hashrate, sharesFound, sharesRejected, thermalInfo
+            "%.2f H/s | A:%d R:%d%s%s",
+            hashrate, sharesFound, sharesRejected, thermalInfo, protection
         )
         val nm = getSystemService(NotificationManager::class.java)
         nm.notify(NOTIFICATION_ID, createNotification(text))
+    }
+
+    /** Build the banner that appears above the Start/Stop button. Critical
+     *  conditions (pause, battery cutoff, unplugged) win over informational
+     *  ones (external-power mode, thermal protection disabled). Returns an
+     *  empty message + NONE severity when mining is operating normally. */
+    private fun computeProtectionBanner(
+        status: ThermalMonitor.DeviceStatus?,
+        unpluggedPause: Boolean
+    ): Pair<ProtectionSeverity, String> {
+        val t = status?.cpuTemp ?: 0f
+        val tStr = if (t > 0f) "${t.toInt()}°C" else "—"
+        val batt = status?.batteryPercent ?: 0
+
+        // --- Critical conditions first ---
+        if (thermalPaused && status?.thermalState == ThermalMonitor.ThermalState.CRITICAL) {
+            return ProtectionSeverity.CRITICAL to "PAUSED — thermal critical ($tStr)"
+        }
+        if (unpluggedPause) {
+            return ProtectionSeverity.CRITICAL to "PAUSED — unplugged"
+        }
+        if (thermalPaused && batt > 0 && batt <= preferences.batteryCutoffPercent &&
+            !preferences.externalPowerMode
+        ) {
+            return ProtectionSeverity.CRITICAL to "PAUSED — battery $batt%"
+        }
+        if (thermalPaused) {
+            return ProtectionSeverity.CRITICAL to "PAUSED — cooling ($tStr)"
+        }
+
+        // --- Active protection (still mining but reduced) ---
+        if (miningEngine.isRunning && status?.thermalState == ThermalMonitor.ThermalState.THROTTLE) {
+            val active = miningEngine.activeThreads
+            return ProtectionSeverity.WARNING to "THROTTLED — $active threads ($tStr)"
+        }
+        if (status?.thermalState == ThermalMonitor.ThermalState.WARNING) {
+            return ProtectionSeverity.WARNING to "Warm ($tStr) — monitoring"
+        }
+
+        // --- Informational (config-level deviations from safe defaults) ---
+        if (!preferences.thermalProtectionEnabled) {
+            return ProtectionSeverity.WARNING to "Thermal protection OFF"
+        }
+        if (preferences.externalPowerMode) {
+            return ProtectionSeverity.INFO to "External power mode"
+        }
+
+        return ProtectionSeverity.NONE to ""
     }
 
     private fun formatHashes(count: Long): String = when {

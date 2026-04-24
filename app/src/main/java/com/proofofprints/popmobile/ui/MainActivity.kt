@@ -201,6 +201,8 @@ class MainActivity : ComponentActivity() {
         var thermalState by remember { mutableStateOf("NORMAL") }
         var activeThreads by remember { mutableIntStateOf(0) }
         var difficulty by remember { mutableDoubleStateOf(0.0) }
+        var protectionMessage by remember { mutableStateOf("") }
+        var protectionSeverity by remember { mutableStateOf(MiningService.ProtectionSeverity.NONE) }
 
         // Update stats periodically
         LaunchedEffect(serviceBound.value) {
@@ -220,6 +222,8 @@ class MainActivity : ComponentActivity() {
                     thermalState = it.thermalState.name
                     activeThreads = it.activeThreads
                     difficulty = it.currentDifficulty
+                    protectionMessage = it.protectionMessage
+                    protectionSeverity = it.protectionSeverity
                 }
 
                 // Re-read config from prefs so remote PoPManager commands
@@ -528,6 +532,16 @@ class MainActivity : ComponentActivity() {
                         Spacer(modifier = Modifier.weight(1f))
                     }
 
+                    // Protection banner — only renders when the service has
+                    // something to say (thermal pause, throttle, unplugged,
+                    // protection disabled, external-power mode). Sits right
+                    // above the Start/Stop button so the user never has to
+                    // hunt for why mining is reduced or paused.
+                    if (protectionMessage.isNotEmpty()) {
+                        ProtectionBanner(protectionMessage, protectionSeverity)
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+
                     // Start/Stop button — shows STOP whenever a session is
                     // active, even if the pool isn't connected yet, so the
                     // user can cancel a stuck connection attempt.
@@ -657,6 +671,44 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    /** Protection-state banner shown above the Start/Stop button. Colour-
+     *  coded by severity so a glance tells the user whether the miner is
+     *  running reduced, paused, or just in an informational mode. */
+    @Composable
+    fun ProtectionBanner(
+        message: String,
+        severity: MiningService.ProtectionSeverity
+    ) {
+        val bg = when (severity) {
+            MiningService.ProtectionSeverity.CRITICAL -> Color(0xFF3A0F1A)
+            MiningService.ProtectionSeverity.WARNING -> Color(0xFF3A2A0F)
+            MiningService.ProtectionSeverity.INFO -> Color(0xFF0F2A3A)
+            MiningService.ProtectionSeverity.NONE -> Color(0xFF1A1A2E)
+        }
+        val fg = when (severity) {
+            MiningService.ProtectionSeverity.CRITICAL -> Color(0xFFFF6B6B)
+            MiningService.ProtectionSeverity.WARNING -> Color(0xFFFFD700)
+            MiningService.ProtectionSeverity.INFO -> Color(0xFF49EACB)
+            MiningService.ProtectionSeverity.NONE -> Color.White
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(bg, shape = RoundedCornerShape(8.dp))
+                .padding(horizontal = 12.dp, vertical = 10.dp)
+        ) {
+            Text(
+                text = message,
+                color = fg,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 
