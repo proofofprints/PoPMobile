@@ -1298,23 +1298,34 @@ class MainActivity : ComponentActivity() {
                         label = "Pause at",
                         value = pauseTemp,
                         color = warningColor,
-                        onValueChange = {
-                            pauseTemp = it
-                            prefs.pauseTempC = it
+                        onValueChange = { newPause ->
+                            pauseTemp = newPause
+                            prefs.pauseTempC = newPause
+                            // Resume must always sit strictly below Pause —
+                            // otherwise we'd thrash on every tick. Pull it
+                            // down with the Pause slider when needed.
+                            val cap = newPause - 1f
+                            if (resumeTemp > cap) {
+                                resumeTemp = cap
+                                prefs.resumeTempC = cap
+                            }
                         }
                     )
                     TempSlider(
                         label = "Resume below",
                         value = resumeTemp,
                         color = accent,
+                        // Hard-cap the slider at Pause - 1 so it's structurally
+                        // impossible to set Resume ≥ Pause from the UI.
+                        maxTemp = pauseTemp - 1f,
                         onValueChange = {
                             resumeTemp = it
                             prefs.resumeTempC = it
                         }
                     )
-                    if (!(warnTemp < throttleTemp && throttleTemp < pauseTemp && resumeTemp < pauseTemp)) {
+                    if (!(warnTemp < throttleTemp && throttleTemp < pauseTemp)) {
                         Text(
-                            "Thresholds should satisfy: Resume < Pause, Warn < Throttle < Pause.",
+                            "Thresholds should satisfy: Warn < Throttle < Pause.",
                             color = warningColor,
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace
@@ -1520,17 +1531,24 @@ class MainActivity : ComponentActivity() {
         label: String,
         value: Float,
         color: Color,
-        onValueChange: (Float) -> Unit
+        onValueChange: (Float) -> Unit,
+        minTemp: Float = MiningPreferences.TEMP_SLIDER_MIN,
+        maxTemp: Float = MiningPreferences.TEMP_SLIDER_MAX
     ) {
+        // Coerce the displayed value into the (potentially shrunk) range so a
+        // previously-stored value above maxTemp still renders inside the
+        // track instead of off the right edge.
+        val effectiveMax = maxOf(minTemp, maxTemp)
+        val displayValue = value.coerceIn(minTemp, effectiveMax)
         Text(
-            "$label: ${value.toInt()}°C",
+            "$label: ${displayValue.toInt()}°C",
             color = Color.White,
             fontFamily = FontFamily.Monospace
         )
         Slider(
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = MiningPreferences.TEMP_SLIDER_MIN..MiningPreferences.TEMP_SLIDER_MAX,
+            value = displayValue,
+            onValueChange = { onValueChange(it.coerceIn(minTemp, effectiveMax)) },
+            valueRange = minTemp..effectiveMax,
             colors = SliderDefaults.colors(
                 thumbColor = color,
                 activeTrackColor = color

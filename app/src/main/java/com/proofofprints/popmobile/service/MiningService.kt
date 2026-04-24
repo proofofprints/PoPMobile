@@ -576,9 +576,11 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
                     // user-configurable resume threshold for RESUME_HOLD_MS.
                     // The hysteresis gap between pauseTempC and resumeTempC
                     // plus this hold period prevents pause/resume thrashing.
+                    val nowMs = System.currentTimeMillis()
+                    val coolEnough = cpuTemp > 0f && cpuTemp <= preferences.resumeTempC
+
                     if (thermalPaused && !miningEngine.isRunning) {
-                        val nowMs = System.currentTimeMillis()
-                        if (cpuTemp > 0f && cpuTemp <= preferences.resumeTempC) {
+                        if (coolEnough) {
                             if (coolingSince == 0L) {
                                 coolingSince = nowMs
                                 Log.i(TAG, "Cooling observed (${cpuTemp}°C ≤ ${preferences.resumeTempC}°C) — holding for ${RESUME_HOLD_MS / 1000}s before resume")
@@ -592,6 +594,30 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
                         } else {
                             coolingSince = 0L
                         }
+                    } else if (miningEngine.isRunning && activeThreads < threadCount) {
+                        // Still running but throttled to fewer threads — bring
+                        // the count back up to the user's configured target
+                        // once temp has been below the resume threshold for
+                        // the same RESUME_HOLD_MS, using the same hysteresis
+                        // logic so we don't ratchet up and down.
+                        if (coolEnough) {
+                            if (coolingSince == 0L) {
+                                coolingSince = nowMs
+                                Log.i(TAG, "Cool enough to un-throttle (${cpuTemp}°C ≤ ${preferences.resumeTempC}°C, currently $activeThreads/$threadCount) — holding for ${RESUME_HOLD_MS / 1000}s")
+                            } else if (nowMs - coolingSince >= RESUME_HOLD_MS) {
+                                Log.i(TAG, "Restoring thread count $activeThreads → $threadCount (${cpuTemp}°C)")
+                                miningEngine.stop()
+                                miningEngine.start(threadCount)
+                                activeThreads = threadCount
+                                coolingSince = 0L
+                            }
+                        } else {
+                            coolingSince = 0L
+                        }
+                    } else {
+                        // Fully restored / never throttled — clear the timer
+                        // so a future cooldown starts fresh.
+                        coolingSince = 0L
                     }
                 }
                 ThermalMonitor.ThermalState.WARNING -> {
