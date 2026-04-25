@@ -174,7 +174,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     private fun startThermalPoller() {
         if (thermalPollerJob?.isActive == true) return
         thermalPollerJob = serviceScope.launch {
-            while (kotlinx.coroutines.isActive) {
+            while (isActive) {
                 try {
                     val s = thermalMonitor.getStatus(threadCount)
                     cpuTemp = s.cpuTemp
