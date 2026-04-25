@@ -80,6 +80,13 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     @Volatile var activeThreads: Int = 0
         private set
     @Volatile private var thermalPaused: Boolean = false
+    /** True once the engine has been started in the current session. The
+     *  stats-update loop owns all start/stop transitions after the initial
+     *  start; flipping this flag false on Stop / disconnect is what lets
+     *  onNewJob start mining the very first time, and prevents it from
+     *  racing the stats loop's stop+restart pattern (throttle / cooldown
+     *  resume) by trying to bring the engine back up at full thread count. */
+    @Volatile private var engineStartedOnce: Boolean = false
     /** True while the onDisconnected retry-loop coroutine is active. Guards
      *  against re-entrancy — StratumClient.connect() calls onDisconnected on
      *  failure, which would otherwise spawn a second retry loop that races
@@ -516,6 +523,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
         thermalPaused = false
         coolingSince = 0L
         activeThreads = 0
+        engineStartedOnce = false
         miningEngine.stop()
         stratumClient.disconnect()
         wakeLock?.let {
@@ -626,6 +634,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
                         coolingSince = 0L
                         activeThreads = 0
                         miningEngine.stop()
+                        if (!isSessionActive) return
                         // Refresh banner immediately — the next poller tick is
                         // up to 3s away, by which time temp will have dropped
                         // and the banner would say "cooling" rather than
@@ -639,9 +648,15 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
                     val recommended = maxOf(1, threadCount / 2)
                     if (miningEngine.isRunning && recommended < activeThreads) {
                         Log.w(TAG, "THERMAL THROTTLE (${cpuTemp}°C) — reducing to $recommended threads")
-                        miningEngine.stop()
-                        miningEngine.start(recommended)
                         activeThreads = recommended
+                        miningEngine.stop()
+                        // nativeStop blocks until the worker threads exit,
+                        // which can take seconds. If the user pressed Stop
+                        // during that window, isSessionActive flipped false
+                        // and we must NOT call start() again — otherwise the
+                        // miner "fires back up" right after the user stopped.
+                        if (!isSessionActive) return
+                        miningEngine.start(recommended)
                         onThermalWarning?.invoke(thermalState, cpuTemp)
                     }
                 }
@@ -656,8 +671,10 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
                                 Log.i(TAG, "Cooling observed (${cpuTemp}°C ≤ ${preferences.resumeTempC}°C) — holding for ${RESUME_HOLD_MS / 1000}s before resume")
                             } else if (nowMs - coolingSince >= RESUME_HOLD_MS) {
                                 Log.i(TAG, "Cooldown complete (${cpuTemp}°C) — resuming mining")
+                                if (!isSessionActive) return
                                 miningEngine.start(threadCount)
                                 activeThreads = threadCount
+                                engineStartedOnce = true
                                 thermalPaused = false
                                 coolingSince = 0L
                             }
@@ -672,6 +689,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
                             } else if (nowMs - coolingSince >= RESUME_HOLD_MS) {
                                 Log.i(TAG, "Restoring thread count $activeThreads → $threadCount (${cpuTemp}°C)")
                                 miningEngine.stop()
+                                if (!isSessionActive) return
                                 miningEngine.start(threadCount)
                                 activeThreads = threadCount
                                 coolingSince = 0L
@@ -701,6 +719,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
                 coolingSince = 0L
                 activeThreads = 0
                 miningEngine.stop()
+                if (!isSessionActive) return
                 updateProtectionBanner(lastDeviceStatus)
                 onStatsUpdate?.invoke()
             }
@@ -727,6 +746,11 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
         poolState = if (isStopping) PoolState.DISCONNECTED else PoolState.ERROR
         poolErrorReason = if (isStopping) null else friendly
         miningEngine.stop()
+        // Allow onNewJob to bring the engine back up after the reconnect
+        // succeeds. Without this, engineStartedOnce stays true and the first
+        // job after reconnect would just update setJob without restarting
+        // the worker threads.
+        engineStartedOnce = false
         updateNotification("Pool error: $friendly")
 
         if (isStopping) return
@@ -791,10 +815,17 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
         val target = miningEngine.setTargetFromDifficulty(currentDifficulty)
         miningEngine.setJob(headerHash, jobId, target, timestamp)
 
-        // Start mining threads if not already running
-        if (!miningEngine.isRunning && !thermalPaused) {
+        // Initial start only — once the engine is up for this session, the
+        // stats-update loop owns all subsequent start/stop transitions
+        // (throttle, pause, resume). Without this gate, an incoming job that
+        // lands in the brief window between stats loop's stop() and start()
+        // races and brings the engine back up at full thread count, undoing
+        // the throttle (we'd see "reducing to 3 threads" but mining stays at
+        // 6/6) or briefly resuming during a CRITICAL pause.
+        if (!engineStartedOnce && !thermalPaused) {
             miningEngine.start(threadCount)
             activeThreads = threadCount
+            engineStartedOnce = true
             LogManager.info("Mining started ($threadCount threads)")
             updateNotification("Mining...")
         }
