@@ -76,7 +76,12 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
         private set
     var activeThreads: Int = 0
         private set
-    private var thermalPaused: Boolean = false
+    @Volatile private var thermalPaused: Boolean = false
+    /** True while the onDisconnected retry-loop coroutine is active. Guards
+     *  against re-entrancy — StratumClient.connect() calls onDisconnected on
+     *  failure, which would otherwise spawn a second retry loop that races
+     *  with the first. */
+    @Volatile private var isReconnecting: Boolean = false
     /** Monotonic-ms timestamp of when displayTemp first dipped below the
      *  resume threshold after a pause. Used to hold off resuming until the
      *  drop has been sustained for [RESUME_HOLD_MS], preventing thrash. */
@@ -602,10 +607,14 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
                 ThermalMonitor.ThermalState.CRITICAL -> {
                     if (miningEngine.isRunning) {
                         Log.w(TAG, "THERMAL CRITICAL (${cpuTemp}°C) — pausing mining!")
-                        miningEngine.stop()
+                        // Set the pause flag BEFORE stopping the engine so
+                        // onNewJob (on the StratumClient thread) can't observe
+                        // `!isRunning && !thermalPaused` during the stop
+                        // window and immediately restart mining.
                         thermalPaused = true
                         coolingSince = 0L
                         activeThreads = 0
+                        miningEngine.stop()
                         onThermalWarning?.invoke(thermalState, cpuTemp)
                     }
                 }
@@ -671,10 +680,10 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
                 && miningEngine.isRunning
             ) {
                 Log.w(TAG, "Unplugged while requireCharging=true — pausing")
-                miningEngine.stop()
                 thermalPaused = true
                 coolingSince = 0L
                 activeThreads = 0
+                miningEngine.stop()
             }
 
             delay(3000) // Check every 3 seconds
@@ -701,50 +710,48 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
         miningEngine.stop()
         updateNotification("Pool error: $friendly")
 
-        // Attempt reconnect with exponential backoff
+        if (isStopping) return
+        // StratumClient.connect() itself calls listener.onDisconnected() on
+        // failure, which would otherwise spawn a second retry coroutine and
+        // race with the one already running. Gate on isReconnecting.
+        if (isReconnecting) return
+        isReconnecting = true
+
+        // Reconnect with bounded exponential backoff, forever, while the
+        // session is alive. Previously capped at 10 attempts (~7 min) which
+        // meant a bridge that came back 10 minutes later would never be
+        // picked up — the user had to manually Stop/Start to recover.
         serviceScope.launch {
-            var delayMs = 5_000L
-            val maxDelayMs = 60_000L
-            val maxRetries = 10
+            try {
+                var delayMs = 5_000L
+                val maxDelayMs = 60_000L
+                var attempt = 0
+                while (!isStopping && !stratumClient.isConnected) {
+                    attempt++
+                    Log.i(TAG, "Reconnect attempt $attempt in ${delayMs / 1000}s...")
+                    poolState = PoolState.CONNECTING
+                    updateNotification("Reconnecting (attempt $attempt)...")
+                    delay(delayMs)
 
-            for (attempt in 1..maxRetries) {
-                if (isStopping) {
-                    Log.i(TAG, "Service stopping, aborting reconnect")
-                    return@launch
-                }
-                if (stratumClient.isConnected) {
-                    Log.i(TAG, "Already reconnected, aborting retry loop")
-                    return@launch
-                }
+                    if (isStopping) return@launch
 
-                Log.i(TAG, "Reconnect attempt $attempt/$maxRetries in ${delayMs / 1000}s...")
-                poolState = PoolState.CONNECTING
-                updateNotification("Reconnecting ($attempt/$maxRetries)...")
-                delay(delayMs)
-
-                if (isStopping) return@launch
-
-                try {
-                    stratumClient.connect(poolHost, poolPort, walletAddress, workerName)
-                    if (stratumClient.isConnected) {
-                        Log.i(TAG, "Reconnected on attempt $attempt")
-                        return@launch
+                    try {
+                        stratumClient.connect(poolHost, poolPort, walletAddress, workerName)
+                        if (stratumClient.isConnected) {
+                            Log.i(TAG, "Reconnected on attempt $attempt")
+                            return@launch
+                        }
+                    } catch (e: Exception) {
+                        val reason = friendlyConnectError(e)
+                        Log.w(TAG, "Reconnect attempt $attempt failed: $reason")
+                        poolState = PoolState.ERROR
+                        poolErrorReason = reason
                     }
-                } catch (e: Exception) {
-                    val reason = friendlyConnectError(e)
-                    Log.w(TAG, "Reconnect attempt $attempt failed: $reason")
-                    poolState = PoolState.ERROR
-                    poolErrorReason = reason
+
+                    delayMs = minOf(delayMs * 2, maxDelayMs)
                 }
-
-                delayMs = minOf(delayMs * 2, maxDelayMs)
-            }
-
-            if (!isStopping) {
-                Log.e(TAG, "All $maxRetries reconnect attempts failed")
-                poolState = PoolState.ERROR
-                if (poolErrorReason == null) poolErrorReason = "No response"
-                updateNotification("Connection lost — all retries exhausted")
+            } finally {
+                isReconnecting = false
             }
         }
     }
