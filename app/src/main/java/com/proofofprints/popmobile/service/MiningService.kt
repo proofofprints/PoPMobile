@@ -54,8 +54,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
      *  Shared with ThermalMonitor so both sides see the same config. */
     lateinit var preferences: MiningPreferences
         private set
-    @Volatile
-    private var isStopping: Boolean = false
+    @Volatile private var isStopping: Boolean = false
 
     // Mining config
     var poolHost: String = ""
@@ -65,16 +64,20 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     var threadCount: Int = 2
     var currentDifficulty: Double = 0.0014  // Reasonable starting diff for ~40 KH/s phone
 
-    // Thermal state exposed to UI
-    var cpuTemp: Float = 0f
+    // Thermal state exposed to UI. @Volatile because these are written by
+    // the always-on thermal poller coroutine and read both by the UI and by
+    // the stats-update loop on a different coroutine thread; without it the
+    // stats loop can hold a stale `thermalState=NORMAL` in a register and
+    // never enter the CRITICAL branch even though the poller has updated it.
+    @Volatile var cpuTemp: Float = 0f
         private set
-    var batteryPercent: Int = 100
+    @Volatile var batteryPercent: Int = 100
         private set
-    var isCharging: Boolean = false
+    @Volatile var isCharging: Boolean = false
         private set
-    var thermalState: ThermalMonitor.ThermalState = ThermalMonitor.ThermalState.NORMAL
+    @Volatile var thermalState: ThermalMonitor.ThermalState = ThermalMonitor.ThermalState.NORMAL
         private set
-    var activeThreads: Int = 0
+    @Volatile var activeThreads: Int = 0
         private set
     @Volatile private var thermalPaused: Boolean = false
     /** True while the onDisconnected retry-loop coroutine is active. Guards
@@ -82,6 +85,13 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
      *  failure, which would otherwise spawn a second retry loop that races
      *  with the first. */
     @Volatile private var isReconnecting: Boolean = false
+    /** Latest DeviceStatus seen by the always-on thermal poller. Cached so
+     *  the stats-update loop can recompute the protection banner immediately
+     *  on pause transitions instead of waiting up to 3s for the next poller
+     *  tick — otherwise a CRITICAL pause is invisible in the UI until temp
+     *  has already dropped, at which point the banner shows 'cooling'
+     *  instead of the actual cause. */
+    @Volatile private var lastDeviceStatus: ThermalMonitor.DeviceStatus? = null
     /** Monotonic-ms timestamp of when displayTemp first dipped below the
      *  resume threshold after a pause. Used to hold off resuming until the
      *  drop has been sustained for [RESUME_HOLD_MS], preventing thrash. */
@@ -186,6 +196,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
                     batteryPercent = s.batteryPercent
                     isCharging = s.isCharging
                     thermalState = s.thermalState
+                    lastDeviceStatus = s
                     updateProtectionBanner(s)
                     // Refresh the foreground notification so the temp / banner
                     // shown in the system tray stays accurate even when
@@ -615,6 +626,12 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
                         coolingSince = 0L
                         activeThreads = 0
                         miningEngine.stop()
+                        // Refresh banner immediately — the next poller tick is
+                        // up to 3s away, by which time temp will have dropped
+                        // and the banner would say "cooling" rather than
+                        // surfacing the actual critical pause cause.
+                        updateProtectionBanner(lastDeviceStatus)
+                        onStatsUpdate?.invoke()
                         onThermalWarning?.invoke(thermalState, cpuTemp)
                     }
                 }
@@ -684,6 +701,8 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
                 coolingSince = 0L
                 activeThreads = 0
                 miningEngine.stop()
+                updateProtectionBanner(lastDeviceStatus)
+                onStatsUpdate?.invoke()
             }
 
             delay(3000) // Check every 3 seconds
@@ -904,6 +923,15 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
         }
 
         // --- Active protection (still mining but reduced) ---
+        // CRITICAL handling: the thermal poller observes CRITICAL one tick
+        // before the stats-update loop pauses the engine. Without this branch
+        // the banner would be empty during that window — and by the time the
+        // pause does land, the next poller tick already reads a cooler temp,
+        // so the user only ever sees "PAUSED — cooling" and never the actual
+        // "we just hit the limit" alert.
+        if (status?.thermalState == ThermalMonitor.ThermalState.CRITICAL) {
+            return ProtectionSeverity.CRITICAL to "Critical temp ($tStr) — pausing"
+        }
         if (miningEngine.isRunning && status?.thermalState == ThermalMonitor.ThermalState.THROTTLE) {
             val active = miningEngine.activeThreads
             return ProtectionSeverity.WARNING to "THROTTLED — $active threads ($tStr)"
