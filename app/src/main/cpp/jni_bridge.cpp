@@ -93,6 +93,24 @@ Java_com_proofofprints_popmobile_mining_MiningEngine_nativeGetHashrate(
     return mining_get_hashrate();
 }
 
+extern "C" JNIEXPORT jdouble JNICALL
+Java_com_proofofprints_popmobile_mining_MiningEngine_nativeGetHashrateWindow(
+        JNIEnv *env, jobject thiz, jdouble seconds) {
+    return mining_get_hashrate_window((double)seconds);
+}
+
+extern "C" JNIEXPORT jlong JNICALL
+Java_com_proofofprints_popmobile_mining_MiningEngine_nativeGetThreadHashes(
+        JNIEnv *env, jobject thiz, jint threadIdx) {
+    return (jlong)mining_get_thread_hashes((int)threadIdx);
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_proofofprints_popmobile_mining_MiningEngine_nativeGetActiveThreads(
+        JNIEnv *env, jobject thiz) {
+    return (jint)mining_get_active_threads();
+}
+
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_proofofprints_popmobile_mining_MiningEngine_nativeGetTotalHashes(
         JNIEnv *env, jobject thiz) {

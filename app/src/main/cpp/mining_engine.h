@@ -40,9 +40,28 @@ bool mining_is_running(void);
 void mining_set_job(const uint8_t *header_hash, const char *job_id, const uint8_t *target, uint64_t timestamp);
 
 /**
- * Get current hashrate in hashes/second.
+ * Get session-average hashrate in hashes/second (cumulative since mining_start).
+ * Kept for backwards compatibility; prefer mining_get_hashrate_window() for UI.
  */
 double mining_get_hashrate(void);
+
+/**
+ * Get hashrate averaged over the most recent `seconds` of mining.
+ * Backed by a 15-minute ring buffer of samples taken every 500ms.
+ * Returns 0 if insufficient samples are available yet.
+ */
+double mining_get_hashrate_window(double seconds);
+
+/**
+ * Get the raw total-hashes counter for a single worker thread (0-indexed).
+ * Used for per-thread diagnostics (detecting a stuck worker).
+ */
+uint64_t mining_get_thread_hashes(int thread_idx);
+
+/**
+ * Number of worker threads currently active.
+ */
+int mining_get_active_threads(void);
 
 /**
  * Get total hashes computed since start.

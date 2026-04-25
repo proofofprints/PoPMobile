@@ -405,14 +405,19 @@ class PoPManagerReporter(
                 reportNow()
                 Result.success("Paired with PoPManager")
             } else if (response.code == 401) {
-                val err = json?.get("error")?.asString
-                    ?: "Pairing code is invalid or already used"
-                Log.w(TAG, "Pair 401: $err")
-                LogManager.warn("PoPManager pairing failed: $err")
+                // Spec (PoPManager v1.0.2): any 401 from the register endpoint
+                // means the pairing code has been consumed or has rotated. The
+                // user-visible string is fixed so PoPManager and PoPMobile
+                // agree on the wording.
+                val serverErr = json?.get("error")?.asString
+                Log.w(TAG, "Pair 401: ${serverErr ?: "expired"}")
+                LogManager.warn("PoPManager pairing failed: pairing code expired" +
+                    (serverErr?.let { " (server: $it)" } ?: ""))
                 pairingRequired = true
                 lastStatus = "pairing_required"
-                lastError = err
-                Result.failure(Exception(err))
+                val userMsg = "Pairing code expired. Get a fresh code from PoPManager."
+                lastError = userMsg
+                Result.failure(Exception(userMsg))
             } else {
                 val err = json?.get("error")?.asString ?: "HTTP ${response.code}"
                 Log.w(TAG, "Pair failed: $err")

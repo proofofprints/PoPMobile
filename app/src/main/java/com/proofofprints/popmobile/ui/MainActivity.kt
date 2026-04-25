@@ -44,6 +44,7 @@ import com.proofofprints.popmobile.BuildConfig
 import com.proofofprints.popmobile.LogLevel
 import com.proofofprints.popmobile.LogManager
 import com.proofofprints.popmobile.R
+import com.proofofprints.popmobile.service.MiningPreferences
 import com.proofofprints.popmobile.service.MiningService
 import com.proofofprints.popmobile.update.UpdateChecker
 import com.proofofprints.popmobile.update.UpdateDialog
@@ -56,18 +57,20 @@ class MainActivity : ComponentActivity() {
     private var miningService: MiningService? = null
     private var serviceBound = mutableStateOf(false)
 
-    // Callback registered when launchWalletQrScanner is called, invoked when
-    // the ZXing scanner activity returns a result.
-    private var pendingScanResult: ((String) -> Unit)? = null
+    // Callback registered when launchWalletQrScanner / launchPairingQrScanner
+    // is called, invoked once the ZXing scanner activity returns a result.
+    // The handler receives the raw scanned string and is responsible for
+    // whichever parsing it needs (wallet address vs PoPManager pairing JSON).
+    private var pendingScanHandler: ((String) -> Unit)? = null
 
     private val qrScanLauncher = registerForActivityResult(
         com.journeyapps.barcodescanner.ScanContract()
     ) { result ->
-        val cb = pendingScanResult
-        pendingScanResult = null
+        val cb = pendingScanHandler
+        pendingScanHandler = null
         val raw = result.contents
         if (raw == null || cb == null) return@registerForActivityResult
-        handleScannedWalletAddress(raw, cb)
+        cb(raw)
     }
 
     private val serviceConnection = object : ServiceConnection {
@@ -200,6 +203,8 @@ class MainActivity : ComponentActivity() {
         var thermalState by remember { mutableStateOf("NORMAL") }
         var activeThreads by remember { mutableIntStateOf(0) }
         var difficulty by remember { mutableDoubleStateOf(0.0) }
+        var protectionMessage by remember { mutableStateOf("") }
+        var protectionSeverity by remember { mutableStateOf(MiningService.ProtectionSeverity.NONE) }
 
         // Update stats periodically
         LaunchedEffect(serviceBound.value) {
@@ -219,6 +224,8 @@ class MainActivity : ComponentActivity() {
                     thermalState = it.thermalState.name
                     activeThreads = it.activeThreads
                     difficulty = it.currentDifficulty
+                    protectionMessage = it.protectionMessage
+                    protectionSeverity = it.protectionSeverity
                 }
 
                 // Re-read config from prefs so remote PoPManager commands
@@ -527,6 +534,16 @@ class MainActivity : ComponentActivity() {
                         Spacer(modifier = Modifier.weight(1f))
                     }
 
+                    // Protection banner — only renders when the service has
+                    // something to say (thermal pause, throttle, unplugged,
+                    // protection disabled, external-power mode). Sits right
+                    // above the Start/Stop button so the user never has to
+                    // hunt for why mining is reduced or paused.
+                    if (protectionMessage.isNotEmpty()) {
+                        ProtectionBanner(protectionMessage, protectionSeverity)
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+
                     // Start/Stop button — shows STOP whenever a session is
                     // active, even if the pool isn't connected yet, so the
                     // user can cancel a stuck connection attempt.
@@ -656,6 +673,44 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    /** Protection-state banner shown above the Start/Stop button. Colour-
+     *  coded by severity so a glance tells the user whether the miner is
+     *  running reduced, paused, or just in an informational mode. */
+    @Composable
+    fun ProtectionBanner(
+        message: String,
+        severity: MiningService.ProtectionSeverity
+    ) {
+        val bg = when (severity) {
+            MiningService.ProtectionSeverity.CRITICAL -> Color(0xFF3A0F1A)
+            MiningService.ProtectionSeverity.WARNING -> Color(0xFF3A2A0F)
+            MiningService.ProtectionSeverity.INFO -> Color(0xFF0F2A3A)
+            MiningService.ProtectionSeverity.NONE -> Color(0xFF1A1A2E)
+        }
+        val fg = when (severity) {
+            MiningService.ProtectionSeverity.CRITICAL -> Color(0xFFFF6B6B)
+            MiningService.ProtectionSeverity.WARNING -> Color(0xFFFFD700)
+            MiningService.ProtectionSeverity.INFO -> Color(0xFF49EACB)
+            MiningService.ProtectionSeverity.NONE -> Color.White
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(bg, shape = RoundedCornerShape(8.dp))
+                .padding(horizontal = 12.dp, vertical = 10.dp)
+        ) {
+            Text(
+                text = message,
+                color = fg,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 
@@ -857,6 +912,9 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            // ========= PROTECTION (thermal + power) =========
+            ProtectionSettingsCard()
+
             // ========= POPMANAGER INTEGRATION =========
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -905,6 +963,29 @@ class MainActivity : ComponentActivity() {
                             bannerText,
                             color = bannerColor,
                             fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+
+                    // Scan pairing QR displayed by PoPManager. On success we
+                    // fill both the Server URL and Pairing Code fields so the
+                    // user can tap Pair without typing anything.
+                    OutlinedButton(
+                        onClick = {
+                            launchPairingQrScanner { scannedUrl, scannedCode ->
+                                popServerUrl = scannedUrl
+                                popPairingCode = scannedCode
+                                popTestResult = null
+                                popPairResult = null
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            "SCAN PAIRING QR",
+                            color = Color(0xFF49EACB),
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace
                         )
@@ -1114,6 +1195,367 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Thermal + power management settings. All knobs read from and write
+     *  through [MiningPreferences] so the running MiningService picks them
+     *  up on its next 3-second tick without needing a restart. */
+    @Composable
+    fun ProtectionSettingsCard() {
+        val prefs = remember { MiningPreferences(applicationContext) }
+
+        var thermalEnabled by remember { mutableStateOf(prefs.thermalProtectionEnabled) }
+        var warnTemp by remember { mutableStateOf(prefs.warnTempC) }
+        var throttleTemp by remember { mutableStateOf(prefs.throttleTempC) }
+        var pauseTemp by remember { mutableStateOf(prefs.pauseTempC) }
+        var resumeTemp by remember { mutableStateOf(prefs.resumeTempC) }
+
+        var externalPower by remember { mutableStateOf(prefs.externalPowerMode) }
+        var requireCharging by remember { mutableStateOf(prefs.requireCharging) }
+        var batteryCutoff by remember { mutableStateOf(prefs.batteryCutoffPercent) }
+
+        var showDisableDialog by remember { mutableStateOf(false) }
+        var showExtPowerDialog by remember { mutableStateOf(false) }
+
+        val accent = Color(0xFF49EACB)
+        val warningColor = Color(0xFFFF6B6B)
+        val labelColor = Color.White
+        val subColor = Color.Gray
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "PROTECTION",
+                    color = accent,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+
+                // ----- Thermal protection master switch -----
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Thermal protection",
+                            color = labelColor,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            if (thermalEnabled)
+                                "Pause / throttle mining when hot"
+                            else
+                                "DISABLED — device may overheat",
+                            color = if (thermalEnabled) subColor else warningColor,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Switch(
+                        checked = thermalEnabled,
+                        onCheckedChange = { newValue ->
+                            if (!newValue) {
+                                showDisableDialog = true
+                            } else {
+                                thermalEnabled = true
+                                prefs.thermalProtectionEnabled = true
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = accent,
+                            checkedTrackColor = accent.copy(alpha = 0.4f)
+                        )
+                    )
+                }
+
+                if (thermalEnabled) {
+                    TempSlider(
+                        label = "Warn at",
+                        value = warnTemp,
+                        color = Color(0xFFFFD700),
+                        onValueChange = {
+                            warnTemp = it
+                            prefs.warnTempC = it
+                        }
+                    )
+                    TempSlider(
+                        label = "Throttle at (halve threads)",
+                        value = throttleTemp,
+                        color = Color(0xFFFFA500),
+                        onValueChange = {
+                            throttleTemp = it
+                            prefs.throttleTempC = it
+                        }
+                    )
+                    TempSlider(
+                        label = "Pause at",
+                        value = pauseTemp,
+                        color = warningColor,
+                        onValueChange = { newPause ->
+                            pauseTemp = newPause
+                            prefs.pauseTempC = newPause
+                            // Resume must always sit strictly below Pause —
+                            // otherwise we'd thrash on every tick. Pull it
+                            // down with the Pause slider when needed.
+                            val cap = newPause - 1f
+                            if (resumeTemp > cap) {
+                                resumeTemp = cap
+                                prefs.resumeTempC = cap
+                            }
+                        }
+                    )
+                    TempSlider(
+                        label = "Resume below",
+                        value = resumeTemp,
+                        color = accent,
+                        // Hard-cap the slider at Pause - 1 so it's structurally
+                        // impossible to set Resume ≥ Pause from the UI.
+                        maxTemp = pauseTemp - 1f,
+                        onValueChange = {
+                            resumeTemp = it
+                            prefs.resumeTempC = it
+                        }
+                    )
+                    if (!(warnTemp < throttleTemp && throttleTemp < pauseTemp)) {
+                        Text(
+                            "Thresholds should satisfy: Warn < Throttle < Pause.",
+                            color = warningColor,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "POWER",
+                    color = accent,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+
+                // ----- External power mode -----
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "External power mode",
+                            color = labelColor,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            "CellHasher / bench PSU / battery-bypassed rig. Skips battery checks.",
+                            color = subColor,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Switch(
+                        checked = externalPower,
+                        onCheckedChange = { newValue ->
+                            if (newValue) {
+                                showExtPowerDialog = true
+                            } else {
+                                externalPower = false
+                                prefs.externalPowerMode = false
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = accent,
+                            checkedTrackColor = accent.copy(alpha = 0.4f)
+                        )
+                    )
+                }
+
+                // ----- Require charging -----
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Require charging to mine",
+                            color = if (externalPower) subColor else labelColor,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            if (externalPower)
+                                "Ignored in external-power mode"
+                            else
+                                "Pause mining when unplugged",
+                            color = subColor,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Switch(
+                        checked = requireCharging,
+                        enabled = !externalPower,
+                        onCheckedChange = { newValue ->
+                            requireCharging = newValue
+                            prefs.requireCharging = newValue
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = accent,
+                            checkedTrackColor = accent.copy(alpha = 0.4f)
+                        )
+                    )
+                }
+
+                // ----- Battery cutoff -----
+                Text(
+                    "Battery cutoff: $batteryCutoff%" +
+                        (if (externalPower) " (ignored)" else ""),
+                    color = if (externalPower) subColor else labelColor,
+                    fontFamily = FontFamily.Monospace
+                )
+                Slider(
+                    value = batteryCutoff.toFloat(),
+                    onValueChange = {
+                        val v = it.toInt()
+                        batteryCutoff = v
+                        prefs.batteryCutoffPercent = v
+                    },
+                    valueRange = MiningPreferences.BATT_CUTOFF_MIN.toFloat()
+                        ..MiningPreferences.BATT_CUTOFF_MAX.toFloat(),
+                    enabled = !externalPower,
+                    colors = SliderDefaults.colors(
+                        thumbColor = accent,
+                        activeTrackColor = accent
+                    )
+                )
+                Text(
+                    "Pause mining when battery drops below this percentage.",
+                    color = subColor,
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+        }
+
+        // ----- Confirmation dialogs -----
+
+        if (showDisableDialog) {
+            AlertDialog(
+                onDismissRequest = { showDisableDialog = false },
+                title = {
+                    Text(
+                        "Disable thermal protection?",
+                        color = warningColor,
+                        fontFamily = FontFamily.Monospace
+                    )
+                },
+                text = {
+                    Text(
+                        "Without thermal limits, the miner will run until the OS " +
+                            "emergency-shuts the device down. This can permanently " +
+                            "damage your phone's battery or SoC. Only enable with " +
+                            "active cooling (e.g. a fan, peltier, or CellHasher rig).",
+                        color = Color.White,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        thermalEnabled = false
+                        prefs.thermalProtectionEnabled = false
+                        showDisableDialog = false
+                    }) {
+                        Text("DISABLE", color = warningColor, fontFamily = FontFamily.Monospace)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDisableDialog = false }) {
+                        Text("Cancel", color = accent, fontFamily = FontFamily.Monospace)
+                    }
+                },
+                containerColor = Color(0xFF1A1A2E)
+            )
+        }
+
+        if (showExtPowerDialog) {
+            AlertDialog(
+                onDismissRequest = { showExtPowerDialog = false },
+                title = {
+                    Text(
+                        "Enable external power mode?",
+                        color = accent,
+                        fontFamily = FontFamily.Monospace
+                    )
+                },
+                text = {
+                    Text(
+                        "Use this when the phone is powered by a CellHasher, bench " +
+                            "PSU, or has the battery physically bypassed. Battery " +
+                            "percentage, charging detection, and low-battery cutoff " +
+                            "will all be skipped. If thermal protection is also " +
+                            "disabled, nothing will stop the miner short of hardware " +
+                            "failure.",
+                        color = Color.White,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        externalPower = true
+                        prefs.externalPowerMode = true
+                        showExtPowerDialog = false
+                    }) {
+                        Text("ENABLE", color = accent, fontFamily = FontFamily.Monospace)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showExtPowerDialog = false }) {
+                        Text("Cancel", color = Color.Gray, fontFamily = FontFamily.Monospace)
+                    }
+                },
+                containerColor = Color(0xFF1A1A2E)
+            )
+        }
+    }
+
+    @Composable
+    private fun TempSlider(
+        label: String,
+        value: Float,
+        color: Color,
+        onValueChange: (Float) -> Unit,
+        minTemp: Float = MiningPreferences.TEMP_SLIDER_MIN,
+        maxTemp: Float = MiningPreferences.TEMP_SLIDER_MAX
+    ) {
+        // Coerce the displayed value into the (potentially shrunk) range so a
+        // previously-stored value above maxTemp still renders inside the
+        // track instead of off the right edge.
+        val effectiveMax = maxOf(minTemp, maxTemp)
+        val displayValue = value.coerceIn(minTemp, effectiveMax)
+        Text(
+            "$label: ${displayValue.toInt()}°C",
+            color = Color.White,
+            fontFamily = FontFamily.Monospace
+        )
+        Slider(
+            value = displayValue,
+            onValueChange = { onValueChange(it.coerceIn(minTemp, effectiveMax)) },
+            valueRange = minTemp..effectiveMax,
+            colors = SliderDefaults.colors(
+                thumbColor = color,
+                activeTrackColor = color
+            )
+        )
+    }
+
     @Composable
     fun MinerTextField(
         label: String,
@@ -1162,21 +1604,74 @@ class MainActivity : ComponentActivity() {
      *  Play Services download. The camera permission is requested by the
      *  ZXing activity itself if not yet granted. */
     private fun launchWalletQrScanner(onResult: (String) -> Unit) {
-        pendingScanResult = onResult
-        val options = com.journeyapps.barcodescanner.ScanOptions().apply {
+        pendingScanHandler = { raw -> handleScannedWalletAddress(raw, onResult) }
+        qrScanLauncher.launch(defaultScanOptions())
+    }
+
+    /** Launch the shared QR scanner for PoPManager pairing. On a successful
+     *  scan + JSON validation, [onResult] receives (serverUrl, pairingCode)
+     *  so the caller can drop them straight into the matching text fields. */
+    private fun launchPairingQrScanner(onResult: (server: String, code: String) -> Unit) {
+        pendingScanHandler = { raw -> handleScannedPairingCode(raw, onResult) }
+        qrScanLauncher.launch(defaultScanOptions())
+    }
+
+    private fun defaultScanOptions(): com.journeyapps.barcodescanner.ScanOptions =
+        com.journeyapps.barcodescanner.ScanOptions().apply {
             setDesiredBarcodeFormats(com.journeyapps.barcodescanner.ScanOptions.QR_CODE)
             setBeepEnabled(false)
             setOrientationLocked(true)
             setBarcodeImageEnabled(false)
-            // Use our custom portrait scanner with square framing box
             captureActivity = QrScannerActivity::class.java
         }
-        qrScanLauncher.launch(options)
+
+    /** Parse a PoPManager pairing QR payload of the form:
+     *   {"v":1,"type":"popmanager-register","url":"...","code":"..."}
+     *  On success calls [onResult] with the extracted server URL + code.
+     *  On any validation failure shows a toast and returns. */
+    private fun handleScannedPairingCode(
+        raw: String,
+        onResult: (server: String, code: String) -> Unit
+    ) {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) {
+            toast("QR code was empty")
+            return
+        }
+        val parsed = try {
+            com.google.gson.JsonParser.parseString(trimmed).asJsonObject
+        } catch (e: Exception) {
+            toast("Not a PoPManager QR code")
+            return
+        }
+        val type = parsed.get("type")?.asString
+        if (type != "popmanager-register") {
+            toast("Not a PoPManager QR code")
+            return
+        }
+        val version = parsed.get("v")?.asInt ?: 0
+        if (version > 1) {
+            toast("Update PoPMiner Mobile to scan this code")
+            return
+        }
+        val url = parsed.get("url")?.asString?.trim().orEmpty()
+        val code = parsed.get("code")?.asString?.trim().orEmpty()
+        if (url.isEmpty() || code.isEmpty()) {
+            toast("QR is missing server URL or code")
+            return
+        }
+        onResult(url, code)
+        LogManager.info("Scanned PoPManager pairing QR: $url")
+        toast("Pairing QR scanned")
     }
 
-    /** Parse and validate a scanned QR string, then hand the extracted
-     *  Kaspa address to [onResult]. Handles bare addresses, URI-wrapped forms,
-     *  and addresses with query params. */
+    private fun toast(msg: String) {
+        android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_SHORT).show()
+    }
+
+    /** Parse and validate a scanned Kaspa-address QR string, then hand the
+     *  extracted address to [onResult]. Handles bare addresses, URI-wrapped
+     *  forms, and addresses with query params. */
     private fun handleScannedWalletAddress(raw: String, onResult: (String) -> Unit) {
         val trimmed = raw.trim()
         if (trimmed.isEmpty()) {

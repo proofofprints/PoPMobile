@@ -46,6 +46,35 @@ static volatile uint32_t shares_rejected = 0;
 static volatile uint64_t hash_count_for_rate = 0;
 static struct timespec rate_start_time;
 
+/* ===== Per-thread hash counters (cache-line aligned to avoid false sharing) ===== */
+
+typedef struct {
+    volatile uint64_t hashes;
+    char _pad[64 - sizeof(uint64_t)];
+} __attribute__((aligned(64))) ThreadStat;
+
+static ThreadStat thread_stats[MAX_THREADS];
+
+/* ===== Hashrate history ring buffer =====
+ * Sampled every SAMPLE_INTERVAL_MS by a dedicated reporter thread. Reader walks
+ * back from newest sample to compute a rate over any window. One mutex covers
+ * both push and query; contention is negligible (2 writes/sec, reads on demand).
+ */
+
+#define SAMPLE_INTERVAL_MS 500
+#define HISTORY_SLOTS 1800   /* 1800 * 500ms = 15 min of history */
+
+typedef struct {
+    uint64_t ts_ms;
+    uint64_t total_hashes;
+} HashrateSample;
+
+static HashrateSample samples[HISTORY_SLOTS];
+static uint64_t samples_written = 0;        /* total samples ever written (monotonic) */
+static pthread_mutex_t samples_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_t reporter_thread;
+static volatile bool reporter_running = false;
+
 /* ===== Extranonce ===== */
 
 static volatile uint64_t extranonce_prefix = 0;   /* Upper bits of nonce (from bridge) */
@@ -149,6 +178,9 @@ static void *mining_worker(void *arg) {
 
         __sync_fetch_and_add(&total_hashes, 1);
         __sync_fetch_and_add(&hash_count_for_rate, 1);
+        /* Per-thread counter has a single writer (this thread), but use atomic
+         * RELAXED so the reporter thread sees up-to-date values without tearing. */
+        __atomic_fetch_add(&thread_stats[thread_id].hashes, 1, __ATOMIC_RELAXED);
 
         /* Increment only the extranonce2 portion, preserving the extranonce prefix */
         uint64_t en2_part = (nonce & extranonce2_mask) + active_thread_count;
@@ -220,6 +252,43 @@ static bool run_selftest(void) {
     return pass;
 }
 
+/* ===== Hashrate sampler ===== */
+
+static uint64_t now_monotonic_ms(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint64_t)ts.tv_sec * 1000ULL + (uint64_t)(ts.tv_nsec / 1000000L);
+}
+
+static uint64_t sum_thread_hashes(void) {
+    uint64_t sum = 0;
+    for (int i = 0; i < MAX_THREADS; i++) {
+        sum += __atomic_load_n(&thread_stats[i].hashes, __ATOMIC_RELAXED);
+    }
+    return sum;
+}
+
+static void *reporter_loop(void *arg) {
+    (void)arg;
+    LOGI("Hashrate reporter thread started");
+    while (reporter_running) {
+        uint64_t ts = now_monotonic_ms();
+        uint64_t total = sum_thread_hashes();
+
+        pthread_mutex_lock(&samples_mutex);
+        HashrateSample *slot = &samples[samples_written % HISTORY_SLOTS];
+        slot->ts_ms = ts;
+        slot->total_hashes = total;
+        samples_written++;
+        pthread_mutex_unlock(&samples_mutex);
+
+        struct timespec sleep_ts = {0, SAMPLE_INTERVAL_MS * 1000000L};
+        nanosleep(&sleep_ts, NULL);
+    }
+    LOGI("Hashrate reporter thread stopped");
+    return NULL;
+}
+
 /* ===== Public API ===== */
 
 void mining_start(int num_threads) {
@@ -234,9 +303,25 @@ void mining_start(int num_threads) {
     hash_count_for_rate = 0;
     mining_running = true;
 
+    /* Reset per-thread counters and hashrate history */
+    for (int i = 0; i < MAX_THREADS; i++) {
+        __atomic_store_n(&thread_stats[i].hashes, 0, __ATOMIC_RELAXED);
+    }
+    pthread_mutex_lock(&samples_mutex);
+    samples_written = 0;
+    memset(samples, 0, sizeof(samples));
+    pthread_mutex_unlock(&samples_mutex);
+
     clock_gettime(CLOCK_MONOTONIC, &rate_start_time);
 
     LOGI("Starting mining with %d threads", num_threads);
+
+    /* Launch reporter thread for windowed hashrate sampling */
+    reporter_running = true;
+    if (pthread_create(&reporter_thread, NULL, reporter_loop, NULL) != 0) {
+        LOGE("Failed to start hashrate reporter thread");
+        reporter_running = false;
+    }
 
     /* Run self-test to verify compiled kHeavyHash is correct */
     run_selftest();
@@ -270,6 +355,12 @@ void mining_stop(void) {
 
     for (int i = 0; i < active_thread_count; i++) {
         pthread_join(threads[i], NULL);
+    }
+
+    /* Stop reporter thread after workers so final sample captures their last hashes */
+    if (reporter_running) {
+        reporter_running = false;
+        pthread_join(reporter_thread, NULL);
     }
 
     active_thread_count = 0;
@@ -311,6 +402,68 @@ double mining_get_hashrate(void) {
 
     uint64_t count = hash_count_for_rate;
     return (double)count / elapsed;
+}
+
+double mining_get_hashrate_window(double seconds) {
+    if (seconds <= 0.0) return 0.0;
+    /* If mining has been stopped, the device isn't hashing — don't report a
+     * windowed rate based on the last few seconds of pre-stop work. */
+    if (!mining_running) return 0.0;
+
+    uint64_t now = now_monotonic_ms();
+    uint64_t window_ms = (uint64_t)(seconds * 1000.0);
+    uint64_t target_ts = (now > window_ms) ? (now - window_ms) : 0;
+
+    pthread_mutex_lock(&samples_mutex);
+    uint64_t written = samples_written;
+    if (written < 2) {
+        pthread_mutex_unlock(&samples_mutex);
+        return 0.0;
+    }
+
+    uint64_t newest_slot = (written - 1) % HISTORY_SLOTS;
+    uint64_t newest_ts = samples[newest_slot].ts_ms;
+    uint64_t newest_h = samples[newest_slot].total_hashes;
+
+    /* If the most recent sample is older than the window (reporter stopped,
+     * mining halted), there are no hashes in the window → rate is zero. */
+    if (newest_ts < target_ts) {
+        pthread_mutex_unlock(&samples_mutex);
+        return 0.0;
+    }
+
+    /* Walk back to find the oldest sample still inside [target_ts, now],
+     * bounded by history capacity. */
+    uint64_t max_back = (written < HISTORY_SLOTS) ? written : HISTORY_SLOTS;
+    uint64_t oldest_ts = newest_ts;
+    uint64_t oldest_h = newest_h;
+
+    for (uint64_t back = 1; back < max_back; back++) {
+        uint64_t slot = (written - 1 - back) % HISTORY_SLOTS;
+        uint64_t ts = samples[slot].ts_ms;
+        if (ts < target_ts) break;
+        oldest_ts = ts;
+        oldest_h = samples[slot].total_hashes;
+    }
+    pthread_mutex_unlock(&samples_mutex);
+
+    /* Anchor the window end at `now` so that after mining stops the denominator
+     * keeps growing even though no new samples arrive — rate decays smoothly to
+     * zero over the window's duration instead of being pinned at its last value. */
+    uint64_t window_end = (newest_ts > now) ? newest_ts : now;
+    if (window_end <= oldest_ts) return 0.0;
+    double elapsed_s = (double)(window_end - oldest_ts) / 1000.0;
+    uint64_t delta = newest_h - oldest_h;
+    return (double)delta / elapsed_s;
+}
+
+uint64_t mining_get_thread_hashes(int thread_idx) {
+    if (thread_idx < 0 || thread_idx >= MAX_THREADS) return 0;
+    return __atomic_load_n(&thread_stats[thread_idx].hashes, __ATOMIC_RELAXED);
+}
+
+int mining_get_active_threads(void) {
+    return active_thread_count;
 }
 
 uint64_t mining_get_total_hashes(void) {

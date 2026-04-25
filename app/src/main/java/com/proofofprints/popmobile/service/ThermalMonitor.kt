@@ -18,21 +18,13 @@ import android.os.PowerManager
 import android.util.Log
 import java.io.File
 
-class ThermalMonitor(private val context: Context) {
+class ThermalMonitor(
+    private val context: Context,
+    private val prefs: MiningPreferences = MiningPreferences(context)
+) {
 
     companion object {
         private const val TAG = "ThermalMonitor"
-
-        /** Temperature thresholds in Celsius — used only when we have a real
-         *  raw sensor reading. When the system exposes a bucketed thermal
-         *  status via PowerManager we use that directly instead. */
-        const val TEMP_WARNING = 45.0f
-        const val TEMP_THROTTLE = 50.0f   // Reduce threads at this temp
-        const val TEMP_CRITICAL = 55.0f   // Pause mining entirely
-
-        /** Battery thresholds */
-        const val BATTERY_LOW = 20        // Warn user
-        const val BATTERY_CRITICAL = 10   // Pause mining
     }
 
     enum class ThermalState {
@@ -51,12 +43,17 @@ class ThermalMonitor(private val context: Context) {
     )
 
     private var maxThreads: Int = Runtime.getRuntime().availableProcessors()
+    private var dumpedZones: Boolean = false
 
     /**
      * Read current device thermal and battery status.
      */
     fun getStatus(currentThreads: Int): DeviceStatus {
         maxThreads = currentThreads
+        if (!dumpedZones) {
+            dumpAllThermalZones()
+            dumpedZones = true
+        }
 
         // Single ACTION_BATTERY_CHANGED read covers percent-fallback,
         // charging state, and battery temperature.
@@ -66,22 +63,23 @@ class ThermalMonitor(private val context: Context) {
         val batteryTemp = readBatteryTemperature(batteryIntent)
 
         val cpuTemp = readCpuTemperature()
-        // Display temp: CPU if we have it, otherwise fall back to battery
-        // temperature. Battery sits right next to the SoC so it's a decent
-        // proxy when thermal_zone is locked down.
-        val displayTemp = if (cpuTemp > 0f) cpuTemp else batteryTemp
+        // Display temp: CPU if we have it. In external-power mode the battery
+        // may be bypassed/absent so its temperature is noise — don't fall back
+        // to it. Otherwise battery temp is a decent SoC proxy when thermal_zone
+        // is locked down.
+        val displayTemp = when {
+            cpuTemp > 0f -> cpuTemp
+            prefs.externalPowerMode -> 0f
+            else -> batteryTemp
+        }
 
-        // Direct PowerManager thermal status is the truthiest signal when
-        // available. Fall back to our temperature threshold logic if not.
-        val thermalStateFromOs = readOsThermalState()
-        val thermalState = when {
-            thermalStateFromOs != null -> combineWithBattery(thermalStateFromOs, batteryPercent, isCharging)
-            displayTemp >= TEMP_CRITICAL -> ThermalState.CRITICAL
-            displayTemp >= TEMP_THROTTLE -> ThermalState.THROTTLE
-            displayTemp >= TEMP_WARNING -> ThermalState.WARNING
-            batteryPercent in 1..BATTERY_CRITICAL && !isCharging -> ThermalState.CRITICAL
-            batteryPercent in 1..BATTERY_LOW && !isCharging -> ThermalState.WARNING
-            else -> ThermalState.NORMAL
+        // If the user has disabled thermal protection outright, never escalate
+        // past NORMAL — the UI still shows the real temp (so they can monitor)
+        // but MiningService won't act on it.
+        val thermalState = if (!prefs.thermalProtectionEnabled) {
+            ThermalState.NORMAL
+        } else {
+            computeThermalState(displayTemp, batteryPercent, isCharging)
         }
 
         val recommendedThreads = when (thermalState) {
@@ -98,6 +96,32 @@ class ThermalMonitor(private val context: Context) {
             thermalState = thermalState,
             recommendedThreads = recommendedThreads
         )
+    }
+
+    /** Combine user-configurable thresholds, the OS thermal bucket (API 29+),
+     *  and battery state into a single severity. The user's thresholds ALWAYS
+     *  win when they escalate higher than the OS bucket — vendor thresholds
+     *  are generally tuned for casual workloads and won't fire until the SoC
+     *  is dangerously hot, so a user who sets an aggressive pause at 70 °C
+     *  should see mining pause at 70 °C regardless of what PowerManager says.
+     *  Battery is ignored entirely in external-power mode. */
+    private fun computeThermalState(
+        displayTemp: Float,
+        batteryPercent: Int,
+        isCharging: Boolean
+    ): ThermalState {
+        val osState = readOsThermalState() ?: ThermalState.NORMAL
+        val thresholdState = when {
+            displayTemp >= prefs.pauseTempC -> ThermalState.CRITICAL
+            displayTemp >= prefs.throttleTempC -> ThermalState.THROTTLE
+            displayTemp >= prefs.warnTempC -> ThermalState.WARNING
+            else -> ThermalState.NORMAL
+        }
+        // ThermalState ordinal is severity — pick whichever source is more
+        // conservative.
+        val tempState = if (thresholdState.ordinal >= osState.ordinal) thresholdState else osState
+        if (prefs.externalPowerMode) return tempState
+        return combineWithBattery(tempState, batteryPercent, isCharging)
     }
 
     /**
@@ -126,16 +150,20 @@ class ThermalMonitor(private val context: Context) {
     }
 
     /** Roll battery-level concerns into the OS thermal decision — low
-     *  battery outranks a NORMAL thermal state but not a CRITICAL one. */
+     *  battery outranks a NORMAL thermal state but not a CRITICAL one.
+     *  The cutoff is user-configurable; WARNING fires at 2× the cutoff so
+     *  the user sees a heads-up before we pause. */
     private fun combineWithBattery(
         os: ThermalState,
         batteryPercent: Int,
         isCharging: Boolean
     ): ThermalState {
         if (isCharging || batteryPercent <= 0) return os
+        val cutoff = prefs.batteryCutoffPercent
+        val warnLevel = (cutoff * 2).coerceAtMost(50)
         val batteryState = when {
-            batteryPercent <= BATTERY_CRITICAL -> ThermalState.CRITICAL
-            batteryPercent <= BATTERY_LOW -> ThermalState.WARNING
+            batteryPercent <= cutoff -> ThermalState.CRITICAL
+            batteryPercent <= warnLevel -> ThermalState.WARNING
             else -> ThermalState.NORMAL
         }
         // ThermalState enum is declared in severity order, ordinal == severity.
@@ -150,13 +178,48 @@ class ThermalMonitor(private val context: Context) {
      */
     private fun readCpuTemperature(): Float = readThermalZones()
 
+    /** One-shot dump of every thermal zone the OS exposes. Run once per session
+     *  so we can see in logcat which zones exist and which are readable by the
+     *  unprivileged app UID — vendors lock different zones on different ROMs. */
+    private fun dumpAllThermalZones() {
+        try {
+            val thermalDir = File("/sys/class/thermal/")
+            val zones = thermalDir.listFiles()?.filter { it.name.startsWith("thermal_zone") }?.sortedBy { it.name }
+            if (zones.isNullOrEmpty()) {
+                Log.w(TAG, "ZONE_DUMP: /sys/class/thermal has no thermal_zone* entries")
+                return
+            }
+            Log.i(TAG, "ZONE_DUMP: ${zones.size} thermal zones found")
+            for (zone in zones) {
+                val type = try {
+                    File(zone, "type").takeIf { it.exists() && it.canRead() }?.readText()?.trim() ?: "?"
+                } catch (e: Exception) { "err:${e.message}" }
+                val temp = try {
+                    val f = File(zone, "temp")
+                    if (f.exists() && f.canRead()) f.readText().trim() else "unreadable"
+                } catch (e: Exception) { "err:${e.message}" }
+                Log.i(TAG, "ZONE_DUMP ${zone.name} type=$type temp=$temp")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "ZONE_DUMP failed: ${e.message}")
+        }
+    }
+
     /**
      * Read from /sys/class/thermal/thermal_zone* as a raw-temperature source.
      * Many OEMs restrict these on retail Android; we fall through to battery
      * temperature in that case.
+     *
+     * On Qualcomm Bengal (TCL A3X) several zones named `*-step` / `*-max-step`
+     * report the trip-point threshold (e.g. 100000 mC = 100 °C) rather than a
+     * live temperature — so we skip anything whose type looks like a trip
+     * reporter, and log which zone contributed the winning reading so future
+     * mis-calibration is diagnosable from logcat.
      */
     private fun readThermalZones(): Float {
         var maxTemp = 0.0f
+        var maxZone = ""
+        var maxType = ""
 
         try {
             val thermalDir = File("/sys/class/thermal/")
@@ -171,16 +234,43 @@ class ThermalMonitor(private val context: Context) {
                         val type = if (typeFile.exists()) typeFile.readText().trim() else ""
                         val rawTemp = tempFile.readText().trim().toFloatOrNull() ?: return@forEach
 
+                        // Skip zones that report trip-point thresholds, not
+                        // live temperatures. On Bengal these sit at a fixed
+                        // 95–100 °C and dominate the max when the device is
+                        // cold.
+                        if (type.contains("step", ignoreCase = true) ||
+                            type.contains("trip", ignoreCase = true)) {
+                            return@forEach
+                        }
+
+                        // On Qualcomm PMIC the zone literally named "soc"
+                        // is State of Charge (battery %), not System-on-Chip
+                        // temperature. Ignore it.
+                        if (type.equals("soc", ignoreCase = true)) {
+                            return@forEach
+                        }
+
                         // Most zones report in millidegrees
                         val tempC = if (rawTemp > 1000) rawTemp / 1000.0f else rawTemp
 
+                        // Sanity range: phones don't operate outside -20..125 °C,
+                        // anything else is a sensor reporting something that
+                        // isn't temperature (state-of-charge, voltage, trip
+                        // threshold, disabled sensor stuck at -40000 or 0).
+                        if (tempC < -20f || tempC > 125f) return@forEach
+
                         // Prefer CPU-related zones
                         if (type.contains("cpu", ignoreCase = true) ||
-                            type.contains("tsens", ignoreCase = true) ||
-                            type.contains("soc", ignoreCase = true)) {
-                            if (tempC > maxTemp) maxTemp = tempC
+                            type.contains("tsens", ignoreCase = true)) {
+                            if (tempC > maxTemp) {
+                                maxTemp = tempC
+                                maxZone = zone.name
+                                maxType = type
+                            }
                         } else if (maxTemp == 0.0f && tempC > 0) {
                             maxTemp = tempC
+                            maxZone = zone.name
+                            maxType = type
                         }
                     }
                 } catch (e: Exception) {
@@ -191,6 +281,9 @@ class ThermalMonitor(private val context: Context) {
             Log.d(TAG, "Cannot read thermal zones: ${e.message}")
         }
 
+        if (maxTemp > 0f) {
+            Log.i(TAG, "thermal max=$maxTemp°C from $maxZone ($maxType)")
+        }
         return maxTemp
     }
 
