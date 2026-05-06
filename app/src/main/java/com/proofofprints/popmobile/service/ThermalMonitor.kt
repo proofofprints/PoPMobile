@@ -25,6 +25,10 @@ class ThermalMonitor(
 
     companion object {
         private const val TAG = "ThermalMonitor"
+        @Suppress("DEPRECATION")
+        private fun readSocModel(): String =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Build.SOC_MODEL
+            else Build.HARDWARE
     }
 
     enum class ThermalState {
@@ -45,6 +49,32 @@ class ThermalMonitor(
          *  value (Android 11+). When false, thermal protection cannot
          *  meaningfully act on this device and the UI should say so. */
         val thermalSensorAvailable: Boolean
+    )
+
+    /** A single thermal_zone entry as exposed to the diagnostics UI. */
+    data class ZoneReading(
+        val root: String,        // "/sys/class/thermal/" or "/sys/devices/virtual/thermal/"
+        val name: String,        // e.g. "thermal_zone19"
+        val type: String,        // e.g. "cpu-1-2-usr"
+        val tempC: Float?,       // parsed Celsius, or null if unreadable / out of range
+        val rawTemp: String,     // raw file content (or "unreadable" / "err:...")
+        val isPicked: Boolean,   // true if this is the zone our heuristic chose
+        val isCpuHinted: Boolean // matches cpuZoneHints — would be preferred if CPU
+    )
+
+    /** Snapshot for the in-app Thermal Diagnostics screen. Lets users on
+     *  unsupported SoCs paste a copy/paste-able report into a bug ticket so
+     *  we can grow the heuristic from real-device data. */
+    data class ThermalDiagnostics(
+        val zones: List<ZoneReading>,
+        val pickedTempC: Float,                       // 0 if no zone matched
+        val headroom: Float?,                         // null if API unavailable
+        val headroomNote: String,                     // human-readable status
+        val osThermalStatus: String,                  // currentThermalStatus name or "unsupported"
+        val androidApi: Int = Build.VERSION.SDK_INT,
+        val socModel: String = readSocModel(),
+        val manufacturer: String = Build.MANUFACTURER,
+        val deviceModel: String = Build.MODEL
     )
 
     private var maxThreads: Int = Runtime.getRuntime().availableProcessors()
@@ -230,6 +260,109 @@ class ThermalMonitor(
      * STATE — raw temp only gets displayed when this or battery has a value.)
      */
     private fun readCpuTemperature(): Float = readThermalZones()
+
+    /**
+     * Snapshot every thermal zone the OS exposes plus the headroom signal,
+     * for the in-app Thermal Diagnostics screen. Heavier than getStatus() —
+     * meant to be called only when the user opens Settings → Diagnostics, not
+     * on every poller tick. Marks which zone our heuristic would pick so
+     * users can see whether we got it right.
+     */
+    fun getDiagnostics(): ThermalDiagnostics {
+        val zones = mutableListOf<ZoneReading>()
+        var pickedTempC = 0.0f
+        var pickedKey = ""
+
+        for (root in thermalZoneRoots) {
+            val thermalDir = try { File(root) } catch (_: Exception) { continue }
+            if (!thermalDir.exists()) continue
+            val entries = try {
+                thermalDir.listFiles()?.filter { it.name.startsWith("thermal_zone") }?.sortedBy { it.name }
+            } catch (_: Exception) { null } ?: continue
+
+            for (zone in entries) {
+                val type = try {
+                    File(zone, "type").takeIf { it.exists() && it.canRead() }?.readText()?.trim() ?: ""
+                } catch (e: Exception) { "err:${e.message}" }
+                val rawTemp = try {
+                    val f = File(zone, "temp")
+                    if (f.exists() && f.canRead()) f.readText().trim() else "unreadable"
+                } catch (e: Exception) { "err:${e.message}" }
+
+                val parsed = rawTemp.toFloatOrNull()
+                val tempC: Float? = if (parsed != null) {
+                    val c = if (parsed > 1000) parsed / 1000.0f else parsed
+                    if (c in -20f..125f) c else null
+                } else null
+
+                val isCpuHinted = typeLooksLikeCpu(type)
+                val isUsable = tempC != null &&
+                    !type.contains("step", ignoreCase = true) &&
+                    !type.contains("trip", ignoreCase = true) &&
+                    !type.equals("soc", ignoreCase = true)
+
+                // Mirror readThermalZones()'s pick logic so the diagnostic UI
+                // marks the zone that protection actually acts on.
+                if (isUsable && tempC != null) {
+                    if (isCpuHinted) {
+                        if (tempC > pickedTempC) {
+                            pickedTempC = tempC
+                            pickedKey = "$root${zone.name}"
+                        }
+                    } else if (pickedTempC == 0.0f && tempC > 0f) {
+                        pickedTempC = tempC
+                        pickedKey = "$root${zone.name}"
+                    }
+                }
+
+                zones += ZoneReading(
+                    root = root,
+                    name = zone.name,
+                    type = type,
+                    tempC = tempC,
+                    rawTemp = rawTemp,
+                    isPicked = false,        // patched below once pickedKey is final
+                    isCpuHinted = isCpuHinted
+                )
+            }
+        }
+
+        val pickedZones = zones.map {
+            it.copy(isPicked = ("${it.root}${it.name}") == pickedKey)
+        }
+
+        val headroom = readThermalHeadroom()
+        val headroomNote = when {
+            headroom != null -> "OK"
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.R ->
+                "Requires Android 11+ (this device: API ${Build.VERSION.SDK_INT})"
+            else -> "Unavailable on this device (no thermal HAL)"
+        }
+
+        val osBucket = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+                when (pm.currentThermalStatus) {
+                    PowerManager.THERMAL_STATUS_NONE -> "NONE"
+                    PowerManager.THERMAL_STATUS_LIGHT -> "LIGHT"
+                    PowerManager.THERMAL_STATUS_MODERATE -> "MODERATE"
+                    PowerManager.THERMAL_STATUS_SEVERE -> "SEVERE"
+                    PowerManager.THERMAL_STATUS_CRITICAL -> "CRITICAL"
+                    PowerManager.THERMAL_STATUS_EMERGENCY -> "EMERGENCY"
+                    PowerManager.THERMAL_STATUS_SHUTDOWN -> "SHUTDOWN"
+                    else -> "unknown"
+                }
+            } catch (_: Exception) { "error" }
+        } else "Requires Android 10+"
+
+        return ThermalDiagnostics(
+            zones = pickedZones,
+            pickedTempC = pickedTempC,
+            headroom = headroom,
+            headroomNote = headroomNote,
+            osThermalStatus = osBucket
+        )
+    }
 
     /** One-shot dump of every thermal zone the OS exposes (under both
      *  /sys/class/thermal/ and /sys/devices/virtual/thermal/, since some OEM

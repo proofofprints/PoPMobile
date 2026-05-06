@@ -21,6 +21,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -915,6 +917,9 @@ class MainActivity : ComponentActivity() {
             // ========= PROTECTION (thermal + power) =========
             ProtectionSettingsCard()
 
+            // ========= THERMAL DIAGNOSTICS =========
+            ThermalDiagnosticsCard()
+
             // ========= POPMANAGER INTEGRATION =========
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -1524,6 +1529,215 @@ class MainActivity : ComponentActivity() {
                 containerColor = Color(0xFF1A1A2E)
             )
         }
+    }
+
+    /** Read-only diagnostic card listing every thermal_zone the OS exposes,
+     *  whether each is readable, and the chosen zone our heuristic picked.
+     *  Collapsed by default; expand and tap "Refresh" to capture a snapshot
+     *  for a bug report (Copy report → paste into the issue).
+     *
+     *  Especially useful on non-Snapdragon devices where users have reported
+     *  "no reading" or "way off" — the report tells us exactly which zones
+     *  the device exposes so we can extend the cpuZoneHints heuristic. */
+    @Composable
+    fun ThermalDiagnosticsCard() {
+        val service = miningService
+        var expanded by remember { mutableStateOf(false) }
+        var snapshot by remember { mutableStateOf<com.proofofprints.popmobile.service.ThermalMonitor.ThermalDiagnostics?>(null) }
+        val context = LocalContext.current
+
+        // Lazy load — don't pay for the dual-path scan on every Settings open.
+        // Captures fresh on first expand and on Refresh.
+        LaunchedEffect(expanded) {
+            if (expanded && snapshot == null) {
+                snapshot = service?.getThermalDiagnostics()
+            }
+        }
+
+        val accent = Color(0xFF49EACB)
+        val labelColor = Color.White
+        val subColor = Color.Gray
+        val pickColor = Color(0xFF49EACB)
+        val cpuHintColor = Color(0xFFFFD700)
+        val unusableColor = Color(0xFF666666)
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "THERMAL DIAGNOSTICS",
+                        color = accent,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        if (expanded) "▾" else "▸",
+                        color = accent,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+
+                if (!expanded) {
+                    Text(
+                        "Tap to view raw thermal sensor readings",
+                        color = subColor,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    return@Column
+                }
+
+                if (service == null) {
+                    Text("Service not bound", color = subColor, fontFamily = FontFamily.Monospace)
+                    return@Column
+                }
+
+                val snap = snapshot
+                if (snap == null) {
+                    Text("Loading…", color = subColor, fontFamily = FontFamily.Monospace)
+                    return@Column
+                }
+
+                // ----- Device + summary header -----
+                Text(
+                    "${snap.manufacturer} ${snap.deviceModel} · SoC: ${snap.socModel} · API ${snap.androidApi}",
+                    color = subColor,
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Picked zone temp", color = subColor, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        Text(
+                            if (snap.pickedTempC > 0f) String.format(java.util.Locale.US, "%.1f°C", snap.pickedTempC) else "— (none readable)",
+                            color = if (snap.pickedTempC > 0f) labelColor else Color(0xFFFF6B6B),
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Headroom (API 30+)", color = subColor, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        Text(
+                            snap.headroom?.let { String.format(java.util.Locale.US, "%.2f", it) } ?: "—",
+                            color = if (snap.headroom != null) labelColor else Color(0xFFFF6B6B),
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(snap.headroomNote, color = subColor, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                    }
+                }
+
+                Text(
+                    "OS thermal status: ${snap.osThermalStatus}",
+                    color = subColor,
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // ----- All zones -----
+                Text(
+                    "Zones (${snap.zones.size})",
+                    color = accent,
+                    fontSize = 13.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+                Text(
+                    "★ = chosen for protection · ◆ = recognized CPU/SoC zone · grey = filtered (trip/soc/out-of-range)",
+                    color = subColor,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+
+                snap.zones.forEach { z ->
+                    val tempStr = z.tempC?.let { String.format(java.util.Locale.US, "%.1f°C", it) }
+                        ?: "(${z.rawTemp})"
+                    val marker = when {
+                        z.isPicked -> "★"
+                        z.isCpuHinted -> "◆"
+                        else -> " "
+                    }
+                    val rowColor = when {
+                        z.isPicked -> pickColor
+                        z.tempC == null -> unusableColor
+                        z.isCpuHinted -> cpuHintColor
+                        else -> labelColor
+                    }
+                    Text(
+                        "$marker ${z.name}  ${z.type}  $tempStr",
+                        color = rowColor,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { snapshot = service.getThermalDiagnostics() },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A2A3E))
+                    ) {
+                        Text("Refresh", color = accent, fontFamily = FontFamily.Monospace)
+                    }
+                    Button(
+                        onClick = {
+                            val report = buildThermalReport(snap)
+                            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            cm.setPrimaryClip(android.content.ClipData.newPlainText("PoPMobile thermal report", report))
+                            android.widget.Toast.makeText(context, "Report copied", android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A2A3E))
+                    ) {
+                        Text("Copy report", color = accent, fontFamily = FontFamily.Monospace)
+                    }
+                }
+            }
+        }
+    }
+
+    /** Format a paste-ready bug-report dump from a ThermalDiagnostics
+     *  snapshot. The fields are stable text so users can drop it into a
+     *  GitHub issue without reformatting. */
+    private fun buildThermalReport(snap: com.proofofprints.popmobile.service.ThermalMonitor.ThermalDiagnostics): String {
+        val sb = StringBuilder()
+        sb.append("PoPMobile thermal diagnostics\n")
+        sb.append("Device: ${snap.manufacturer} ${snap.deviceModel}\n")
+        sb.append("SoC: ${snap.socModel}\n")
+        sb.append("Android API: ${snap.androidApi}\n")
+        sb.append("Picked temp: ")
+        sb.append(if (snap.pickedTempC > 0f) String.format(java.util.Locale.US, "%.1f°C", snap.pickedTempC) else "(none readable)")
+        sb.append("\n")
+        sb.append("Headroom: ")
+        sb.append(snap.headroom?.let { String.format(java.util.Locale.US, "%.2f", it) } ?: "—")
+        sb.append(" (${snap.headroomNote})\n")
+        sb.append("OS thermal status: ${snap.osThermalStatus}\n")
+        sb.append("Zones (${snap.zones.size}):\n")
+        snap.zones.forEach { z ->
+            val tempStr = z.tempC?.let { String.format(java.util.Locale.US, "%.1f°C", it) }
+                ?: "(${z.rawTemp})"
+            val marker = when {
+                z.isPicked -> "★"
+                z.isCpuHinted -> "◆"
+                else -> " "
+            }
+            sb.append("  $marker ${z.root}${z.name}  type=${z.type}  $tempStr\n")
+        }
+        return sb.toString()
     }
 
     @Composable
