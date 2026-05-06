@@ -50,6 +50,11 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
     private lateinit var thermalMonitor: ThermalMonitor
+
+    /** Public passthrough so the Settings UI can show a live thermal-zone
+     *  diagnostic page without needing direct access to ThermalMonitor. */
+    fun getThermalDiagnostics(): ThermalMonitor.ThermalDiagnostics =
+        thermalMonitor.getDiagnostics()
     /** User preferences for thermal thresholds, external-power mode, etc.
      *  Shared with ThermalMonitor so both sides see the same config. */
     lateinit var preferences: MiningPreferences
