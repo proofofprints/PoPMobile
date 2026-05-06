@@ -975,6 +975,13 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
         if (!preferences.thermalProtectionEnabled) {
             return ProtectionSeverity.WARNING to "Thermal protection OFF"
         }
+        // No usable thermal signal (sysfs locked AND headroom API absent).
+        // Surface it — better to tell the user protection is operating blind
+        // than silently mis-act on a missing reading. Pre-Android-11 devices
+        // without readable sysfs zones land here.
+        if (status?.thermalSensorAvailable == false) {
+            return ProtectionSeverity.WARNING to "Thermal sensor unavailable"
+        }
         if (preferences.externalPowerMode) {
             return ProtectionSeverity.INFO to "External power mode"
         }
