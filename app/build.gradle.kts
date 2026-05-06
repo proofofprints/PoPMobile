@@ -28,8 +28,8 @@ android {
         applicationId = "com.proofofprints.kasminer"
         minSdk = 26
         targetSdk = 34
-        versionCode = 19
-        versionName = "1.1.1-rc3"
+        versionCode = 20
+        versionName = "1.1.1-rc4"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
@@ -113,7 +113,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-service:2.7.0")
 
     // Jetpack Compose
-    implementation(platform("androidx.compose:compose-bom:2024.01.00"))
+    implementation(platform("androidx.compose:compose-bom:2024.02.02"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
