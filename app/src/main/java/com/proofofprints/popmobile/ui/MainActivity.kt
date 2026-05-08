@@ -53,6 +53,7 @@ import com.proofofprints.popmobile.update.UpdateDialog
 import com.proofofprints.popmobile.update.UpdateInfo
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
 
@@ -896,7 +897,7 @@ class MainActivity : ComponentActivity() {
                     Text("Threads: $threads / $maxThreads", color = Color.White, fontFamily = FontFamily.Monospace)
                     Slider(
                         value = threads.toFloat(),
-                        onValueChange = { onThreadsChange(it.toInt()) },
+                        onValueChange = { onThreadsChange(it.roundToInt()) },
                         valueRange = 1f..maxThreads.toFloat(),
                         steps = maxThreads - 2,
                         colors = SliderDefaults.colors(
@@ -1427,7 +1428,7 @@ class MainActivity : ComponentActivity() {
                 Slider(
                     value = batteryCutoff.toFloat(),
                     onValueChange = {
-                        val v = it.toInt()
+                        val v = it.roundToInt()
                         batteryCutoff = v
                         prefs.batteryCutoffPercent = v
                     },

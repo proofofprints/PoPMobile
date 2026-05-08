@@ -235,13 +235,21 @@ class ThermalMonitor(
     /** Roll battery-level concerns into the OS thermal decision — low
      *  battery outranks a NORMAL thermal state but not a CRITICAL one.
      *  The cutoff is user-configurable; WARNING fires at 2× the cutoff so
-     *  the user sees a heads-up before we pause. */
+     *  the user sees a heads-up before we pause.
+     *
+     *  We deliberately ignore `isCharging` here. A slow USB charger (~500 mA)
+     *  can report STATUS_CHARGING while the device still loses charge under
+     *  mining load — a previous version short-circuited on isCharging and
+     *  let battery slide past the cutoff. Always evaluate the cutoff; the
+     *  resume path will pick mining back up once the charger catches up.
+     *  Users who want mining to ignore battery entirely should enable
+     *  externalPowerMode (handled one frame up the stack). */
     private fun combineWithBattery(
         os: ThermalState,
         batteryPercent: Int,
-        isCharging: Boolean
+        @Suppress("UNUSED_PARAMETER") isCharging: Boolean
     ): ThermalState {
-        if (isCharging || batteryPercent <= 0) return os
+        if (batteryPercent <= 0) return os
         val cutoff = prefs.batteryCutoffPercent
         val warnLevel = (cutoff * 2).coerceAtMost(50)
         val batteryState = when {
@@ -544,24 +552,25 @@ class ThermalMonitor(
     }
 
     /**
-     * Get battery percentage (0-100). Tries BatteryManager.BATTERY_PROPERTY_CAPACITY
-     * first, which is API 21+ and should work everywhere, but some OEMs return
-     * -1 or 0 in practice. Falls back to the EXTRA_LEVEL / EXTRA_SCALE pair from
-     * ACTION_BATTERY_CHANGED, which is more universally supported.
+     * Get battery percentage (0-100). Reads EXTRA_LEVEL / EXTRA_SCALE from the
+     * sticky ACTION_BATTERY_CHANGED broadcast first — this is the value the
+     * system status bar shows, so the in-app reading matches what the user
+     * sees in their OS UI. Falls back to BatteryManager.BATTERY_PROPERTY_CAPACITY
+     * when the broadcast extras are missing (some boot windows, restricted
+     * background contexts). The previous order had it reversed and several
+     * OEMs return a fast-charge-aware "smoothed" capacity that lags the real
+     * value by 5-10%, so users saw 90% in the app while the OS reported 95%.
      */
     private fun readBatteryPercent(batteryIntent: Intent?): Int {
-        val bm = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
-        val capacity = bm?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
-        if (capacity in 0..100) return capacity
-
-        // Fallback — ACTION_BATTERY_CHANGED extras.
         val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
         val scale = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
-        return if (level >= 0 && scale > 0) {
-            (level * 100 / scale).coerceIn(0, 100)
-        } else {
-            0
+        if (level >= 0 && scale > 0) {
+            return (level * 100 / scale).coerceIn(0, 100)
         }
+
+        val bm = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
+        val capacity = bm?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
+        return if (capacity in 0..100) capacity else 0
     }
 
     /** Check if the device is currently charging. */
