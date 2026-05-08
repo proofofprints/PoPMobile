@@ -987,11 +987,25 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
         if (status?.thermalSensorAvailable == false) {
             return ProtectionSeverity.WARNING to "Thermal sensor unavailable"
         }
+        // Battery Saver mode caps the CPU governor so the miner can't reach
+        // its normal hashrate even when temps and battery are fine. Surface
+        // it so users don't think the app itself is broken when Android is
+        // the one throttling.
+        if (isPowerSaveModeActive()) {
+            return ProtectionSeverity.INFO to "Battery Saver active — OS throttling"
+        }
         if (preferences.externalPowerMode) {
             return ProtectionSeverity.INFO to "External power mode"
         }
 
         return ProtectionSeverity.NONE to ""
+    }
+
+    private fun isPowerSaveModeActive(): Boolean = try {
+        val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager
+        pm?.isPowerSaveMode == true
+    } catch (_: Throwable) {
+        false
     }
 
     private fun formatHashes(count: Long): String = when {
