@@ -287,7 +287,7 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color(0xFF162720),
+                        containerColor = Color(0xFF16161B),
                         titleContentColor = Color(0xFF10B981)
                     ),
                     actions = {
@@ -437,7 +437,7 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(150.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF162720)),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF16161B)),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Column(
@@ -639,7 +639,7 @@ class MainActivity : ComponentActivity() {
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF162720)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF16161B)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Row(
@@ -691,7 +691,7 @@ class MainActivity : ComponentActivity() {
             MiningService.ProtectionSeverity.CRITICAL -> Color(0xFF3A0F1A)
             MiningService.ProtectionSeverity.WARNING -> Color(0xFF3A2A0F)
             MiningService.ProtectionSeverity.INFO -> Color(0xFF0C0C0F)
-            MiningService.ProtectionSeverity.NONE -> Color(0xFF162720)
+            MiningService.ProtectionSeverity.NONE -> Color(0xFF16161B)
         }
         val fg = when (severity) {
             MiningService.ProtectionSeverity.CRITICAL -> Color(0xFFFF6B6B)
@@ -726,7 +726,7 @@ class MainActivity : ComponentActivity() {
     ) {
         Card(
             modifier = modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF162720)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF16161B)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
@@ -753,7 +753,7 @@ class MainActivity : ComponentActivity() {
     ) {
         Card(
             modifier = modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF162720)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF16161B)),
             shape = RoundedCornerShape(10.dp)
         ) {
             Column(
@@ -818,7 +818,7 @@ class MainActivity : ComponentActivity() {
             // ========= MINER CONFIGURATION =========
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF162720)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF16161B)),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(
@@ -921,10 +921,10 @@ class MainActivity : ComponentActivity() {
             // ========= THERMAL DIAGNOSTICS =========
             ThermalDiagnosticsCard()
 
-            // ========= POPMANAGER INTEGRATION =========
+            // ========= OVERMANAGER INTEGRATION =========
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF162720)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF16161B)),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(
@@ -932,7 +932,7 @@ class MainActivity : ComponentActivity() {
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        "POPMANAGER INTEGRATION (Optional)",
+                        "OVERMANAGER INTEGRATION (Optional)",
                         color = Color(0xFF10B981),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
@@ -1113,7 +1113,7 @@ class MainActivity : ComponentActivity() {
                                 popServerUrl.isNotBlank(),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF10B981),
-                                disabledContainerColor = Color(0xFF1F2D26)
+                                disabledContainerColor = Color(0xFF1F1F26)
                             )
                         ) {
                             Text(
@@ -1228,7 +1228,7 @@ class MainActivity : ComponentActivity() {
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF162720)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF16161B)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(
@@ -1486,7 +1486,7 @@ class MainActivity : ComponentActivity() {
                         Text("Cancel", color = accent, fontFamily = FontFamily.Monospace)
                     }
                 },
-                containerColor = Color(0xFF162720)
+                containerColor = Color(0xFF16161B)
             )
         }
 
@@ -1527,7 +1527,7 @@ class MainActivity : ComponentActivity() {
                         Text("Cancel", color = Color.Gray, fontFamily = FontFamily.Monospace)
                     }
                 },
-                containerColor = Color(0xFF162720)
+                containerColor = Color(0xFF16161B)
             )
         }
     }
@@ -1564,7 +1564,7 @@ class MainActivity : ComponentActivity() {
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF162720)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF16161B)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(
@@ -1692,7 +1692,7 @@ class MainActivity : ComponentActivity() {
                             Button(
                                 onClick = { snapshot = service.getThermalDiagnostics() },
                                 modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2D26))
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F1F26))
                             ) {
                                 Text("Refresh", color = accent, fontFamily = FontFamily.Monospace)
                             }
@@ -1704,7 +1704,7 @@ class MainActivity : ComponentActivity() {
                                     android.widget.Toast.makeText(context, "Report copied", android.widget.Toast.LENGTH_SHORT).show()
                                 },
                                 modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2D26))
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F1F26))
                             ) {
                                 Text("Copy report", color = accent, fontFamily = FontFamily.Monospace)
                             }
@@ -2000,7 +2000,7 @@ class MainActivity : ComponentActivity() {
         val dateFormat = remember { java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()) }
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF162720)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF16161B)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -2059,7 +2059,7 @@ class MainActivity : ComponentActivity() {
     ) {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF162720)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF16161B)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(

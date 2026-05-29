@@ -82,7 +82,7 @@ fun UpdateDialog(
     }) {
         Surface(
             shape = RoundedCornerShape(16.dp),
-            color = Color(0xFF162720)
+            color = Color(0xFF16161B)
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Text(
@@ -224,7 +224,7 @@ private fun DownloadingBody(progress: DownloadProgress, update: UpdateInfo) {
         modifier = Modifier
             .fillMaxWidth()
             .height(6.dp)
-            .background(Color(0xFF1F2D26), RoundedCornerShape(3.dp))
+            .background(Color(0xFF1F1F26), RoundedCornerShape(3.dp))
     ) {
         Box(
             modifier = Modifier
