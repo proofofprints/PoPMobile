@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Only the latest published release of PoPMobile receives security updates. If you're on an older APK, update to the [most recent release](https://github.com/proofofprints/PoPMobile/releases) before reporting an issue.
+Only the latest published release of OverMobile receives security updates. If you're on an older APK, update to the [most recent release](https://github.com/proofofprints/PoPMobile/releases) before reporting an issue.
 
 | Version | Supported |
 | --- | --- |
@@ -16,7 +16,7 @@ Only the latest published release of PoPMobile receives security updates. If you
 Instead, report privately through either of these channels:
 
 - **GitHub private reporting** (preferred): visit [Report a vulnerability](https://github.com/proofofprints/PoPMobile/security/advisories/new) and submit a draft security advisory
-- **Email**: [support@proofofprints.com](mailto:support@proofofprints.com) with subject line `[PoPMobile security]`
+- **Email**: [support@proofofprints.com](mailto:support@proofofprints.com) with subject line `[OverMobile security]`
 
 Please include, where possible:
 
@@ -35,14 +35,14 @@ Please include, where possible:
 
 In scope:
 
-- The PoPMobile Android app (this repository)
-- The PoPManager reporter protocol as implemented by this app (auth, pairing, command handling)
+- The OverMobile Android app (this repository)
+- The OverManager reporter protocol as implemented by this app (auth, pairing, command handling)
 - Native mining code (`app/src/main/cpp/*.c`) that runs with user data
 
 Out of scope (please report to the respective project):
 
 - The Kaspa network or any pool software — upstream at [kaspanet](https://github.com/kaspanet)
-- PoPManager server — [proofofprints/PoPManager](https://github.com/proofofprints/PoPManager)
+- OverManager server — [proofofprints/OverManager](https://github.com/proofofprints/PoPManager)
 - Bugs that require an already-compromised device (e.g., root + hostile app already installed)
 - Missing security hardening that doesn't correspond to a concrete exploit
 
@@ -52,6 +52,6 @@ We will not pursue legal action against researchers who:
 
 - Make a good-faith effort to avoid privacy violations, data destruction, or service disruption
 - Report the issue privately before public disclosure
-- Only test against wallets, pools, and PoPManager instances they own
+- Only test against wallets, pools, and OverManager instances they own
 
-Thanks for helping keep PoPMobile users safe.
+Thanks for helping keep OverMobile users safe.

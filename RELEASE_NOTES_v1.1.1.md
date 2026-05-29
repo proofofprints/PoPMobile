@@ -1,4 +1,4 @@
-# v1.1.1 — Thermal protection, live hashrate, PoPManager QR pairing
+# v1.1.1 — Thermal protection, live hashrate, OverManager QR pairing
 
 First APK build of the 1.1 series. v1.1.0 was tagged but never published with
 a binary, so this release rolls up everything that landed since v1.0.14.
@@ -27,7 +27,7 @@ a binary, so this release rolls up everything that landed since v1.0.14.
 - **Temperature + banner stay live when stopped.** Hitting Stop no longer
   freezes the TEMP / BATTERY / banner readouts at their last values; the
   thermal poller keeps running.
-- **PoPManager pairing QR scanner.** Scan a pairing code from PoPManager
+- **OverManager pairing QR scanner.** Scan a pairing code from OverManager
   instead of typing it. ZXing is bundled in the APK — no Play Services
   dependency, works fully offline.
 - **In-app Thermal Diagnostics card** (Settings → Thermal Diagnostics).
@@ -58,8 +58,8 @@ a binary, so this release rolls up everything that landed since v1.0.14.
   set above the Pause threshold (would cause the engine to immediately
   re-pause on resume). Thread count is also restored to the user's setting
   after a throttle event instead of staying clamped.
-- **PoPManager error parity.** "Pairing code expired" message now matches
-  PoPManager's canonical wording so support docs line up across both apps.
+- **OverManager error parity.** "Pairing code expired" message now matches
+  OverManager's canonical wording so support docs line up across both apps.
 
 ## Fixed
 
