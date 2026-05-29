@@ -1,7 +1,7 @@
 /**
- * Splash screen — phase 0 shows the OverBuild Labs logo with the
- * OverMobile product name, phase 1 cross-fades to the company name,
- * then navigates to MainActivity.
+ * Splash screen — single OverBuild Labs hex + 'OverMobile' wordmark,
+ * then navigates to MainActivity. Brand attribution (OverBuild Labs,
+ * support email, website) lives in the in-app About card.
  *
  * Copyright (c) 2026 OverBuild Labs
  */
@@ -11,8 +11,6 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -20,7 +18,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
@@ -45,28 +42,8 @@ class SplashActivity : ComponentActivity() {
 
     @Composable
     fun SplashScreen(onFinished: () -> Unit) {
-        // 0 = Kaspa logo, 1 = PoP logo, 2 = done
-        var phase by remember { mutableIntStateOf(0) }
-
-        val kaspaAlpha by animateFloatAsState(
-            targetValue = if (phase == 0) 1f else 0f,
-            animationSpec = tween(durationMillis = 800),
-            label = "kaspaFade"
-        )
-
-        val popAlpha by animateFloatAsState(
-            targetValue = if (phase == 1) 1f else 0f,
-            animationSpec = tween(durationMillis = 800),
-            label = "popFade"
-        )
-
         LaunchedEffect(Unit) {
-            // Phase 0: Show Kaspa logo
             delay(2000)
-            // Phase 1: Show PoP logo
-            phase = 1
-            delay(2000)
-            // Done
             onFinished()
         }
 
@@ -76,11 +53,7 @@ class SplashActivity : ComponentActivity() {
                 .background(Color(0xFF0C0C0F)),
             contentAlignment = Alignment.Center
         ) {
-            // Kaspa logo (phase 0)
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.alpha(kaspaAlpha)
-            ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Image(
                     painter = painterResource(id = R.drawable.overbuild_logo_large),
                     contentDescription = "OverBuild Labs Logo",
@@ -91,30 +64,8 @@ class SplashActivity : ComponentActivity() {
 
                 Text(
                     "OverMobile",
-                    color = Color(0xFF10B981),
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
-                )
-            }
-
-            // PoP logo (phase 1)
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.alpha(popAlpha)
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.pop_logo),
-                    contentDescription = "OverBuild Labs Logo",
-                    modifier = Modifier.size(128.dp)
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Text(
-                    "OverBuild Labs",
                     color = Color.White,
-                    fontSize = 22.sp,
+                    fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace
                 )
