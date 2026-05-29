@@ -28,9 +28,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -293,41 +294,16 @@ class MainActivity : ComponentActivity() {
                         titleContentColor = Color(0xFF10B981)
                     ),
                     actions = {
-                        // Info button with circle border
                         IconButton(onClick = {
                             if (showAbout) { showAbout = false }
                             else { showAbout = true; showSettings = false; showLogs = false }
                         }) {
-                            Box(
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .background(Color.Transparent, shape = androidx.compose.foundation.shape.CircleShape)
-                                    .then(Modifier.padding(0.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    "i",
-                                    color = Color(0xFF10B981),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier
-                                        .background(Color.Transparent, shape = androidx.compose.foundation.shape.CircleShape)
-                                )
-                                // Circle outline
-                                Box(modifier = Modifier
-                                    .size(24.dp)
-                                    .background(Color.Transparent)
-                                    .then(
-                                        Modifier.drawBehind {
-                                            drawCircle(
-                                                color = androidx.compose.ui.graphics.Color(0xFF10B981),
-                                                radius = size.minDimension / 2,
-                                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f)
-                                            )
-                                        }
-                                    )
-                                )
-                            }
+                            Icon(
+                                imageVector = Icons.Outlined.Info,
+                                contentDescription = "About",
+                                tint = Color(0xFF10B981),
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
                         // Logs / Dashboard toggle
                         TextButton(onClick = {
@@ -2123,13 +2099,13 @@ class MainActivity : ComponentActivity() {
                     fontFamily = FontFamily.Monospace
                 )
                 Text(
-                    "support@proofofprints.com",
+                    "support@overbuildlabs.com",
                     color = Color(0xFF10B981),
                     fontSize = 14.sp,
                     fontFamily = FontFamily.Monospace
                 )
                 Text(
-                    "https://www.proofofprints.com",
+                    "https://www.overbuildlabs.com",
                     color = Color(0xFF10B981),
                     fontSize = 14.sp,
                     fontFamily = FontFamily.Monospace
