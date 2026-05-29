@@ -281,7 +281,8 @@ class MainActivity : ComponentActivity() {
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 "OverMobile",
-                                fontSize = 18.sp,
+                                color = Color.White,
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
                             )
