@@ -1,5 +1,5 @@
 /**
- * PoPManager reporter — pushes miner telemetry to a PoPManager instance AND
+ * OverManager reporter — pushes miner telemetry to a OverManager instance AND
  * executes commands returned in the report response.
  *
  * Key design points:
@@ -56,7 +56,7 @@ class PoPManagerReporter(
         fun snapshot(): TelemetrySnapshot
     }
 
-    /** Executes commands received from PoPManager. Runs on the reporter's IO scope. */
+    /** Executes commands received from OverManager. Runs on the reporter's IO scope. */
     interface CommandExecutor {
         /** Apply a command. Return null on success, or an error string on failure. */
         fun execute(command: Command): String?
@@ -109,7 +109,7 @@ class PoPManagerReporter(
     @Volatile var lastReportAt: Long = 0L
         private set
     /** True when the app has a server URL but no valid apiKey — the user must
-     *  enter a pairing code from PoPManager before reporting can start. */
+     *  enter a pairing code from OverManager before reporting can start. */
     @Volatile var pairingRequired: Boolean = false
         private set
 
@@ -235,11 +235,11 @@ class PoPManagerReporter(
             pairingRequired = true
             lastStatus = "pairing_required"
             Log.i(TAG, "No apiKey — pairing required")
-            LogManager.info("PoPManager: pairing code required")
+            LogManager.info("OverManager: pairing code required")
         }
 
         Log.i(TAG, "Reporter starting (server=$serverUrl, deviceId=$deviceId)")
-        LogManager.info("PoPManager reporter starting")
+        LogManager.info("OverManager reporter starting")
 
         reportJob = scope.launch {
             // First attempt: if we have an apiKey, reconnect to refresh
@@ -274,7 +274,7 @@ class PoPManagerReporter(
     }
 
     /** Fire a single out-of-band report immediately (e.g. on mining stop so
-     *  PoPManager sees the status change without waiting for the next tick). */
+     *  OverManager sees the status change without waiting for the next tick). */
     fun reportNow() {
         scope.launch {
             try { sendReport() } catch (e: Exception) {
@@ -337,7 +337,7 @@ class PoPManagerReporter(
             if (response.code == 200 && json?.get("ok")?.asBoolean == true) {
                 persistRegistration(json)
                 Log.i(TAG, "Reconnected: reportUrl=${json.get("reportUrl").asString}")
-                LogManager.info("PoPManager reconnected")
+                LogManager.info("OverManager reconnected")
                 lastStatus = "reporting"
                 lastError = null
                 pairingRequired = false
@@ -346,23 +346,23 @@ class PoPManagerReporter(
                 // Stored key is no longer valid — device was removed or server
                 // was wiped. Force the user to re-pair.
                 Log.w(TAG, "Reconnect 401 — clearing credentials, re-pair required")
-                LogManager.warn("PoPManager: stored key rejected, re-pair required")
+                LogManager.warn("OverManager: stored key rejected, re-pair required")
                 clearCredentials()
                 pairingRequired = true
                 lastStatus = "pairing_required"
-                lastError = "Device removed from PoPManager — re-pair required"
+                lastError = "Device removed from OverManager — re-pair required"
                 false
             } else {
                 val err = json?.get("error")?.asString ?: "HTTP ${response.code}"
                 Log.w(TAG, "Reconnect failed: $err")
-                LogManager.warn("PoPManager reconnect failed: $err")
+                LogManager.warn("OverManager reconnect failed: $err")
                 lastStatus = "error"
                 lastError = err
                 false
             }
         } catch (e: Exception) {
             Log.e(TAG, "Reconnect error: ${e.message}")
-            LogManager.warn("PoPManager unreachable: ${e.message}")
+            LogManager.warn("OverManager unreachable: ${e.message}")
             lastStatus = "error"
             lastError = e.message
             false
@@ -397,38 +397,38 @@ class PoPManagerReporter(
             if (response.code == 200 && json?.get("ok")?.asBoolean == true) {
                 persistRegistration(json)
                 Log.i(TAG, "Paired: reportUrl=${json.get("reportUrl").asString}")
-                LogManager.info("PoPManager paired successfully")
+                LogManager.info("OverManager paired successfully")
                 pairingRequired = false
                 lastStatus = "reporting"
                 lastError = null
                 // Wake up the report loop so the first real report fires now
                 reportNow()
-                Result.success("Paired with PoPManager")
+                Result.success("Paired with OverManager")
             } else if (response.code == 401) {
-                // Spec (PoPManager v1.0.2): any 401 from the register endpoint
+                // Spec (OverManager v1.0.2): any 401 from the register endpoint
                 // means the pairing code has been consumed or has rotated. The
-                // user-visible string is fixed so PoPManager and PoPMobile
+                // user-visible string is fixed so OverManager and OverMobile
                 // agree on the wording.
                 val serverErr = json?.get("error")?.asString
                 Log.w(TAG, "Pair 401: ${serverErr ?: "expired"}")
-                LogManager.warn("PoPManager pairing failed: pairing code expired" +
+                LogManager.warn("OverManager pairing failed: pairing code expired" +
                     (serverErr?.let { " (server: $it)" } ?: ""))
                 pairingRequired = true
                 lastStatus = "pairing_required"
-                val userMsg = "Pairing code expired. Get a fresh code from PoPManager."
+                val userMsg = "Pairing code expired. Get a fresh code from OverManager."
                 lastError = userMsg
                 Result.failure(Exception(userMsg))
             } else {
                 val err = json?.get("error")?.asString ?: "HTTP ${response.code}"
                 Log.w(TAG, "Pair failed: $err")
-                LogManager.warn("PoPManager pairing failed: $err")
+                LogManager.warn("OverManager pairing failed: $err")
                 lastStatus = "error"
                 lastError = err
                 Result.failure(Exception(err))
             }
         } catch (e: Exception) {
             Log.e(TAG, "Pair error: ${e.message}")
-            LogManager.warn("PoPManager unreachable: ${e.message}")
+            LogManager.warn("OverManager unreachable: ${e.message}")
             lastStatus = "error"
             lastError = e.message
             Result.failure(e)
@@ -464,7 +464,7 @@ class PoPManagerReporter(
             addProperty("osVersion", "Android ${Build.VERSION.RELEASE}")
             addProperty("appVersion", appVersion())
             addProperty("coin", snap.coin)
-            addProperty("manufacturer", "Proof of Prints")
+            addProperty("manufacturer", "OverBuild Labs")
             addProperty("model", "Mobile")
             addProperty("pool", snap.pool)
             addProperty("worker", snap.worker)
@@ -531,17 +531,17 @@ class PoPManagerReporter(
                     // longer report under the old key. Force the user to
                     // re-pair with a fresh pairing code.
                     Log.w(TAG, "Device not registered (404) — re-pair required")
-                    LogManager.warn("PoPManager: device unknown, re-pair required")
+                    LogManager.warn("OverManager: device unknown, re-pair required")
                     clearCredentials()
                     pairingRequired = true
                     lastStatus = "pairing_required"
-                    lastError = "Device removed from PoPManager — re-pair required"
+                    lastError = "Device removed from OverManager — re-pair required"
                     false
                 }
                 401 -> {
                     // API key no longer valid — force re-pair.
                     Log.w(TAG, "Bad API key (401) — re-pair required")
-                    LogManager.warn("PoPManager: invalid API key, re-pair required")
+                    LogManager.warn("OverManager: invalid API key, re-pair required")
                     clearCredentials()
                     pairingRequired = true
                     lastStatus = "pairing_required"
@@ -585,7 +585,7 @@ class PoPManagerReporter(
 
             val cmd = Command(id = id, type = type, params = params)
             Log.d(TAG, "Executing: ${cmd.type} ${cmd.params}")
-            LogManager.info("PoPManager command: ${cmd.type}")
+            LogManager.info("OverManager command: ${cmd.type}")
 
             if (executor == null) {
                 Log.w(TAG, "No CommandExecutor registered — failing command $id")
@@ -598,15 +598,15 @@ class PoPManagerReporter(
                 if (error == null) {
                     markApplied(id)
                     queueAck(id, "applied")
-                    LogManager.info("PoPManager command applied: ${cmd.type}")
+                    LogManager.info("OverManager command applied: ${cmd.type}")
                 } else {
                     queueAck(id, "failed", error)
-                    LogManager.warn("PoPManager command failed: ${cmd.type} — $error")
+                    LogManager.warn("OverManager command failed: ${cmd.type} — $error")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Command executor threw: ${e.message}")
                 queueAck(id, "failed", e.message ?: "executor exception")
-                LogManager.warn("PoPManager command exception: ${cmd.type} — ${e.message}")
+                LogManager.warn("OverManager command exception: ${cmd.type} — ${e.message}")
             }
         }
     }

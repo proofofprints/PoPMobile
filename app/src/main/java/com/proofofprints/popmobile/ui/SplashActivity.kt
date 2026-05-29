@@ -88,7 +88,7 @@ class SplashActivity : ComponentActivity() {
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Text(
-                    "PoPMobile",
+                    "OverMobile",
                     color = Color(0xFF49EACB),
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
@@ -103,14 +103,14 @@ class SplashActivity : ComponentActivity() {
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.pop_logo),
-                    contentDescription = "Proof of Prints Logo",
+                    contentDescription = "OverBuild Labs Logo",
                     modifier = Modifier.size(128.dp)
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Text(
-                    "Proof of Prints",
+                    "OverBuild Labs",
                     color = Color.White,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,

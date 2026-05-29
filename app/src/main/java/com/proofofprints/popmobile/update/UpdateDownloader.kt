@@ -64,7 +64,7 @@ class UpdateDownloader(private val context: Context) {
         if (destFile.exists()) destFile.delete()
 
         val request = DownloadManager.Request(Uri.parse(update.apkUrl))
-            .setTitle("PoPMobile ${update.tagName}")
+            .setTitle("OverMobile ${update.tagName}")
             .setDescription("Downloading update…")
             .setDestinationUri(Uri.fromFile(destFile))
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)

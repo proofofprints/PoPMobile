@@ -1,5 +1,5 @@
 /**
- * Polls the GitHub Releases API for a newer PoPMobile APK.
+ * Polls the GitHub Releases API for a newer OverMobile APK.
  *
  * Design notes:
  *  - Hits /repos/{owner}/{repo}/releases/latest, which is cached by GitHub's
@@ -28,7 +28,7 @@ import java.net.URL
 data class UpdateInfo(
     val tagName: String,          // e.g. "v1.0.2"
     val versionName: String,      // stripped of the leading 'v'
-    val releaseName: String,      // e.g. "PoPMobile v1.0.2"
+    val releaseName: String,      // e.g. "OverMobile v1.0.2"
     val releaseNotes: String,     // markdown body from the release
     val apkUrl: String,           // browser_download_url of the .apk asset
     val apkSizeBytes: Long,       // size of the .apk asset (0 if unknown)
@@ -113,7 +113,7 @@ class UpdateChecker(context: Context) {
         val conn = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             setRequestProperty("Accept", "application/vnd.github+json")
-            setRequestProperty("User-Agent", "PoPMobile/${BuildConfig.VERSION_NAME}")
+            setRequestProperty("User-Agent", "OverMobile/${BuildConfig.VERSION_NAME}")
             connectTimeout = 10_000
             readTimeout = 15_000
         }
@@ -163,6 +163,6 @@ class UpdateChecker(context: Context) {
 
         // Swap to a configurable host if the repo ever moves.
         private const val RELEASES_API_URL =
-            "https://api.github.com/repos/proofofprints/PoPMobile/releases/latest"
+            "https://api.github.com/repos/proofofprints/OverMobile/releases/latest"
     }
 }

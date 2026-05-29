@@ -65,7 +65,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
     var poolHost: String = ""
     var poolPort: Int = 0
     var walletAddress: String = ""
-    var workerName: String = "PoPMobile"
+    var workerName: String = "OverMobile"
     var threadCount: Int = 2
     var currentDifficulty: Double = 0.0014  // Reasonable starting diff for ~40 KH/s phone
 
@@ -181,11 +181,11 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
             }
         }
         walletAddress = prefs.getString("wallet", "") ?: ""
-        workerName = prefs.getString("worker", "PoPMobile") ?: "PoPMobile"
+        workerName = prefs.getString("worker", "OverMobile") ?: "OverMobile"
         threadCount = prefs.getInt("threads", 2)
 
         // Start the reporter immediately — it runs independently of mining so
-        // PoPManager sees the device even when stopped/paused.
+        // OverManager sees the device even when stopped/paused.
         popManagerReporter.start()
 
         // Always-on thermal poller — keeps cpuTemp / batteryPercent /
@@ -253,7 +253,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
             // cpuTemp / batteryPercent / isCharging / thermalState are kept
             // current by the always-on thermal poller (started in onCreate),
             // so we just read them here — no need to re-sample on every
-            // PoPManager report.
+            // OverManager report.
             val runtime = if (miningStartedAt > 0)
                 (System.currentTimeMillis() - miningStartedAt) / 1000 else 0L
             val status = when {
@@ -432,13 +432,13 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
         return START_STICKY
     }
 
-    /** Called when the app launches and PoPManager is configured but mining
+    /** Called when the app launches and OverManager is configured but mining
      *  isn't active. Promotes the service to foreground so the reporter stays
      *  alive when the app is backgrounded. */
     private fun ensureRunningForReporting() {
         if (miningEngine.isRunning) return  // already in foreground for mining
         Log.i(TAG, "ensureRunningForReporting: promoting to foreground")
-        startForeground(NOTIFICATION_ID, createNotification("Idle — reporting to PoPManager"))
+        startForeground(NOTIFICATION_ID, createNotification("Idle — reporting to OverManager"))
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
@@ -465,7 +465,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
         poolErrorReason = null
         miningStartedAt = System.currentTimeMillis()
         // Reporter is already running from onCreate — just fire an immediate
-        // status update so PoPManager sees the transition quickly.
+        // status update so OverManager sees the transition quickly.
         popManagerReporter.reportNow()
 
         // Acquire wake lock to prevent CPU sleep
@@ -540,14 +540,14 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
         }
         wifiLock = null
 
-        // Keep the service alive so the PoPManager reporter keeps running
+        // Keep the service alive so the OverManager reporter keeps running
         // and can receive remote commands. Update the foreground notification
-        // to reflect the new state. If PoPManager is NOT configured, there's
+        // to reflect the new state. If OverManager is NOT configured, there's
         // no reason to stay resident — tear the whole thing down.
         if (popManagerReporter.serverUrl.isNotEmpty()) {
             popManagerReporter.reportNow()
             updateNotificationForIdle()
-            Log.i(TAG, "Service staying resident for PoPManager reporting")
+            Log.i(TAG, "Service staying resident for OverManager reporting")
         } else {
             stopForeground(STOP_FOREGROUND_REMOVE)
             popManagerReporter.stop()
@@ -568,7 +568,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
 
     private fun updateNotificationForIdle() {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-        nm.notify(NOTIFICATION_ID, createNotification("Idle — reporting to PoPManager"))
+        nm.notify(NOTIFICATION_ID, createNotification("Idle — reporting to OverManager"))
     }
 
     private suspend fun statsUpdateLoop() {
@@ -901,7 +901,7 @@ class MiningService : Service(), StratumClient.StratumListener, MiningEngine.Sha
         )
 
         return Notification.Builder(this, CHANNEL_ID)
-            .setContentTitle("PoPMobile")
+            .setContentTitle("OverMobile")
             .setContentText(status)
             .setSmallIcon(android.R.drawable.ic_menu_manage)
             .setContentIntent(pendingIntent)

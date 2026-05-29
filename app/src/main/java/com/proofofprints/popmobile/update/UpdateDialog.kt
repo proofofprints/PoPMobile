@@ -174,7 +174,7 @@ private fun PromptBody(update: UpdateInfo, onLater: () -> Unit, onDownload: () -
 @Composable
 private fun NeedPermissionBody(onCancel: () -> Unit, onOpenSettings: () -> Unit) {
     Text(
-        "Android requires explicit permission to install apps from PoPMobile. " +
+        "Android requires explicit permission to install apps from OverMobile. " +
             "Tap Open Settings, enable \"Allow from this source\", then come " +
             "back and tap Check for updates again.",
         color = Color(0xFFCCCCCC),

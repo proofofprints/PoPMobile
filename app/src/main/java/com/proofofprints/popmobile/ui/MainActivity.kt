@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
     // Callback registered when launchWalletQrScanner / launchPairingQrScanner
     // is called, invoked once the ZXing scanner activity returns a result.
     // The handler receives the raw scanned string and is responsible for
-    // whichever parsing it needs (wallet address vs PoPManager pairing JSON).
+    // whichever parsing it needs (wallet address vs OverManager pairing JSON).
     private var pendingScanHandler: ((String) -> Unit)? = null
 
     private val qrScanLauncher = registerForActivityResult(
@@ -113,7 +113,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        // If the user has configured PoPManager, start the service in the
+        // If the user has configured OverManager, start the service in the
         // foreground so the reporter keeps running when the app is backgrounded.
         val popPrefs = getSharedPreferences("popmanager", Context.MODE_PRIVATE)
         val serverUrl = popPrefs.getString("server_url", "") ?: ""
@@ -149,7 +149,7 @@ class MainActivity : ComponentActivity() {
             )
         }
         var wallet by remember { mutableStateOf(prefs.getString("wallet", "") ?: "") }
-        var worker by remember { mutableStateOf(prefs.getString("worker", "PoPMobile") ?: "PoPMobile") }
+        var worker by remember { mutableStateOf(prefs.getString("worker", "OverMobile") ?: "OverMobile") }
         var threads by remember { mutableIntStateOf(prefs.getInt("threads", 2)) }
         var showSettings by remember { mutableStateOf(false) }
         var showLogs by remember { mutableStateOf(false) }
@@ -231,7 +231,7 @@ class MainActivity : ComponentActivity() {
                     protectionSeverity = it.protectionSeverity
                 }
 
-                // Re-read config from prefs so remote PoPManager commands
+                // Re-read config from prefs so remote OverManager commands
                 // (set_config / set_threads) reflect in the UI within ~1s of
                 // being applied. Only update when the stored value differs
                 // from the current state to avoid fighting user input while
@@ -240,7 +240,7 @@ class MainActivity : ComponentActivity() {
                 if (freshPoolUrl != poolUrl && !showSettings) poolUrl = freshPoolUrl
                 val freshWallet = prefs.getString("wallet", "") ?: ""
                 if (freshWallet != wallet && !showSettings) wallet = freshWallet
-                val freshWorker = prefs.getString("worker", "PoPMobile") ?: "PoPMobile"
+                val freshWorker = prefs.getString("worker", "OverMobile") ?: "OverMobile"
                 if (freshWorker != worker && !showSettings) worker = freshWorker
                 val freshThreads = prefs.getInt("threads", 2)
                 if (freshThreads != threads && !showSettings) threads = freshThreads
@@ -280,7 +280,7 @@ class MainActivity : ComponentActivity() {
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                "PoPMobile",
+                                "OverMobile",
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
                             )
@@ -789,7 +789,7 @@ class MainActivity : ComponentActivity() {
         val maxThreads = Runtime.getRuntime().availableProcessors()
         var showSaved by remember { mutableStateOf(false) }
 
-        // PoPManager settings (read/write directly against the popmanager prefs file
+        // OverManager settings (read/write directly against the popmanager prefs file
         // so the reporter in MiningService sees changes immediately)
         val popPrefs = getSharedPreferences("popmanager", Context.MODE_PRIVATE)
         val defaultName = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
@@ -939,7 +939,7 @@ class MainActivity : ComponentActivity() {
                         fontFamily = FontFamily.Monospace
                     )
                     Text(
-                        "Pair with PoPManager to monitor your mobile mining.",
+                        "Pair with OverManager to monitor your mobile mining.",
                         color = Color.Gray,
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace
@@ -951,7 +951,7 @@ class MainActivity : ComponentActivity() {
                         popServerUrl.isBlank() ->
                             "Not configured" to Color.Gray
                         popPairingRequired || !hasStoredKey ->
-                            "Pairing required — enter code from PoPManager" to Color(0xFFFFD700)
+                            "Pairing required — enter code from OverManager" to Color(0xFFFFD700)
                         popLastStatus == "reporting" ->
                             "Paired · reporting" to Color(0xFF49EACB)
                         popLastStatus == "error" ->
@@ -974,7 +974,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // Scan pairing QR displayed by PoPManager. On success we
+                    // Scan pairing QR displayed by OverManager. On success we
                     // fill both the Server URL and Pairing Code fields so the
                     // user can tap Pair without typing anything.
                     OutlinedButton(
@@ -1033,7 +1033,7 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxWidth()
                         )
                         Text(
-                            "Get the current code from PoPManager → Mobile Miners → Add Device.",
+                            "Get the current code from OverManager → Mobile Miners → Add Device.",
                             color = Color.Gray,
                             fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace
@@ -1167,7 +1167,7 @@ class MainActivity : ComponentActivity() {
             Button(
                 onClick = {
                     onSave()
-                    // Persist PoPManager settings directly to its prefs file
+                    // Persist OverManager settings directly to its prefs file
                     popPrefs.edit()
                         .putString("server_url", popServerUrl.trimEnd('/'))
                         .putString("device_name", popDeviceName)
@@ -1177,12 +1177,12 @@ class MainActivity : ComponentActivity() {
                     // user points at a different server, the reporter's 401
                     // response from the new host will trigger re-pair
                     // automatically. If the admin deletes the device from
-                    // PoPManager, the 404 path does the same.
+                    // OverManager, the 404 path does the same.
                     miningService?.let { svc ->
                         svc.popManagerReporter.stop()
                         svc.popManagerReporter.start()
                     }
-                    // If PoPManager is configured and service isn't running,
+                    // If OverManager is configured and service isn't running,
                     // kick it so the reporter begins immediately.
                     if (popServerUrl.isNotBlank()) {
                         val intent = Intent(this@MainActivity, MiningService::class.java).apply {
@@ -1700,7 +1700,7 @@ class MainActivity : ComponentActivity() {
                                 onClick = {
                                     val report = buildThermalReport(snap)
                                     val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                    cm.setPrimaryClip(android.content.ClipData.newPlainText("PoPMobile thermal report", report))
+                                    cm.setPrimaryClip(android.content.ClipData.newPlainText("OverMobile thermal report", report))
                                     android.widget.Toast.makeText(context, "Report copied", android.widget.Toast.LENGTH_SHORT).show()
                                 },
                                 modifier = Modifier.weight(1f),
@@ -1720,7 +1720,7 @@ class MainActivity : ComponentActivity() {
      *  GitHub issue without reformatting. */
     private fun buildThermalReport(snap: com.proofofprints.popmobile.service.ThermalMonitor.ThermalDiagnostics): String {
         val sb = StringBuilder()
-        sb.append("PoPMobile thermal diagnostics\n")
+        sb.append("OverMobile thermal diagnostics\n")
         sb.append("Device: ${snap.manufacturer} ${snap.deviceModel}\n")
         sb.append("SoC: ${snap.socModel}\n")
         sb.append("Android API: ${snap.androidApi}\n")
@@ -1827,7 +1827,7 @@ class MainActivity : ComponentActivity() {
         qrScanLauncher.launch(defaultScanOptions())
     }
 
-    /** Launch the shared QR scanner for PoPManager pairing. On a successful
+    /** Launch the shared QR scanner for OverManager pairing. On a successful
      *  scan + JSON validation, [onResult] receives (serverUrl, pairingCode)
      *  so the caller can drop them straight into the matching text fields. */
     private fun launchPairingQrScanner(onResult: (server: String, code: String) -> Unit) {
@@ -1844,7 +1844,7 @@ class MainActivity : ComponentActivity() {
             captureActivity = QrScannerActivity::class.java
         }
 
-    /** Parse a PoPManager pairing QR payload of the form:
+    /** Parse a OverManager pairing QR payload of the form:
      *   {"v":1,"type":"popmanager-register","url":"...","code":"..."}
      *  On success calls [onResult] with the extracted server URL + code.
      *  On any validation failure shows a toast and returns. */
@@ -1860,17 +1860,17 @@ class MainActivity : ComponentActivity() {
         val parsed = try {
             com.google.gson.JsonParser.parseString(trimmed).asJsonObject
         } catch (e: Exception) {
-            toast("Not a PoPManager QR code")
+            toast("Not a OverManager QR code")
             return
         }
         val type = parsed.get("type")?.asString
         if (type != "popmanager-register") {
-            toast("Not a PoPManager QR code")
+            toast("Not a OverManager QR code")
             return
         }
         val version = parsed.get("v")?.asInt ?: 0
         if (version > 1) {
-            toast("Update PoPMiner Mobile to scan this code")
+            toast("Update OverMiner Mobile to scan this code")
             return
         }
         val url = parsed.get("url")?.asString?.trim().orEmpty()
@@ -1880,7 +1880,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         onResult(url, code)
-        LogManager.info("Scanned PoPManager pairing QR: $url")
+        LogManager.info("Scanned OverManager pairing QR: $url")
         toast("Pairing QR scanned")
     }
 
@@ -2073,7 +2073,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.size(120.dp)
                 )
                 Text(
-                    "PoPMobile",
+                    "OverMobile",
                     color = Color(0xFF49EACB),
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
@@ -2081,7 +2081,7 @@ class MainActivity : ComponentActivity() {
                 )
                 Image(
                     painter = painterResource(id = R.drawable.pop_logo),
-                    contentDescription = "Proof of Prints Logo",
+                    contentDescription = "OverBuild Labs Logo",
                     modifier = Modifier.size(80.dp)
                 )
                 Text(
@@ -2120,7 +2120,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.padding(vertical = 8.dp)
                 )
                 Text(
-                    "Developed by Proof of Prints",
+                    "Developed by OverBuild Labs",
                     color = Color.White,
                     fontSize = 16.sp,
                     fontFamily = FontFamily.Monospace
