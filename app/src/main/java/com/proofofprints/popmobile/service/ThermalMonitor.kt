@@ -5,7 +5,7 @@
  * throttle or pause mining when the device gets too hot or
  * battery drops too low.
  *
- * Copyright (c) 2026 Proof of Prints
+ * Copyright (c) 2026 OverBuild Labs
  */
 package com.proofofprints.popmobile.service
 

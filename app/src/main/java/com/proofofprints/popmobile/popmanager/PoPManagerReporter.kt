@@ -11,7 +11,7 @@
  *   - Pending acks are persisted to SharedPreferences so they survive an app
  *     restart between executing a command and acking it.
  *
- * Copyright (c) 2026 Proof of Prints
+ * Copyright (c) 2026 OverBuild Labs
  */
 package com.proofofprints.popmobile.popmanager
 

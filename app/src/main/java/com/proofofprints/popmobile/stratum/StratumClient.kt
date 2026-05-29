@@ -4,7 +4,7 @@
  * Ported from KASDeck Arduino stratum logic to Kotlin.
  * Handles mining.subscribe, mining.authorize, mining.notify, mining.submit.
  *
- * Copyright (c) 2026 Proof of Prints
+ * Copyright (c) 2026 OverBuild Labs
  */
 package com.proofofprints.popmobile.stratum
 

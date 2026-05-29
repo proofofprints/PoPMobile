@@ -14,7 +14,7 @@
  *   -> PowHash first 16: 2fb72b63dd0dd0d82b00cd9f83d4eca0
  *   -> Full kHeavyHash:  5a5bcd6e352eb8c87c80d0f0574a45a5
  *
- * Copyright (c) 2026 Proof of Prints
+ * Copyright (c) 2026 OverBuild Labs
  */
 
 #include "kheavyhash.h"

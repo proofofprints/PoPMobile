@@ -1,7 +1,7 @@
 /**
  * KAS Miner Material3 theme — dark theme with Kaspa green accent.
  *
- * Copyright (c) 2026 Proof of Prints
+ * Copyright (c) 2026 OverBuild Labs
  */
 package com.proofofprints.popmobile.ui
 

@@ -1,7 +1,7 @@
 /**
  * JNI bridge — exposes the C mining engine to Kotlin/Java.
  *
- * Copyright (c) 2026 Proof of Prints
+ * Copyright (c) 2026 OverBuild Labs
  */
 
 #include <jni.h>

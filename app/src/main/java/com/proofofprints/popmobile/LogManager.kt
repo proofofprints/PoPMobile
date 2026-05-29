@@ -5,7 +5,7 @@
  * Entries older than MAX_AGE_MS are pruned on each add.
  * UI observes [entries] as a Compose snapshot state list.
  *
- * Copyright (c) 2026 Proof of Prints
+ * Copyright (c) 2026 OverBuild Labs
  */
 package com.proofofprints.popmobile
 

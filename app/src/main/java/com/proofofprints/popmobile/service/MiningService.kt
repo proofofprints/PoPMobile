@@ -4,7 +4,7 @@
  * Keeps mining alive in the background with a persistent notification.
  * Manages the lifecycle of the native mining engine and stratum client.
  *
- * Copyright (c) 2026 Proof of Prints
+ * Copyright (c) 2026 OverBuild Labs
  */
 package com.proofofprints.popmobile.service
 

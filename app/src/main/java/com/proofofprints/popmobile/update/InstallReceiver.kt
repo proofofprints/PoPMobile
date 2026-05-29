@@ -8,7 +8,7 @@
  * install first clears the stored download ID. The other side then sees
  * no match and does nothing.
  *
- * Copyright (c) 2026 Proof of Prints
+ * Copyright (c) 2026 OverBuild Labs
  */
 package com.proofofprints.popmobile.update
 

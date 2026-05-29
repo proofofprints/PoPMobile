@@ -3,7 +3,7 @@
  * management. Backed by SharedPreferences (same as the rest of the app)
  * to keep storage consistent and dependency-free.
  *
- * Copyright (c) 2026 Proof of Prints
+ * Copyright (c) 2026 OverBuild Labs
  */
 package com.proofofprints.popmobile.service
 

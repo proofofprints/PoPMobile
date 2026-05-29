@@ -9,7 +9,7 @@
  *  - The user can dismiss a specific version; we only re-prompt when a
  *    newer-than-dismissed version ships.
  *
- * Copyright (c) 2026 Proof of Prints
+ * Copyright (c) 2026 OverBuild Labs
  */
 package com.proofofprints.popmobile.update
 

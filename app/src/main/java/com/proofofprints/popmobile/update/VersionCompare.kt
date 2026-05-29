@@ -9,7 +9,7 @@
  *
  * Returns > 0 if newTag > installed, 0 if equal, < 0 if older.
  *
- * Copyright (c) 2026 Proof of Prints
+ * Copyright (c) 2026 OverBuild Labs
  */
 package com.proofofprints.popmobile.update
 
