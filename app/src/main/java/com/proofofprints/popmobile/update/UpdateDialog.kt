@@ -13,7 +13,7 @@
  *      InstallReceiver is the cold-boot safety net if the app is killed
  *      mid-download.
  *
- * Copyright (c) 2026 Proof of Prints
+ * Copyright (c) 2026 OverBuild Labs
  */
 package com.proofofprints.popmobile.update
 
@@ -82,12 +82,12 @@ fun UpdateDialog(
     }) {
         Surface(
             shape = RoundedCornerShape(16.dp),
-            color = Color(0xFF1A1A2E)
+            color = Color(0xFF16161B)
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Text(
                     "Update available",
-                    color = Color(0xFF49EACB),
+                    color = Color(0xFF10B981),
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace
@@ -164,7 +164,7 @@ private fun PromptBody(update: UpdateInfo, onLater: () -> Unit, onDownload: () -
         Spacer(Modifier.width(8.dp))
         Button(
             onClick = onDownload,
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF49EACB))
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
         ) {
             Text("Download", color = Color.Black, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
         }
@@ -174,7 +174,7 @@ private fun PromptBody(update: UpdateInfo, onLater: () -> Unit, onDownload: () -
 @Composable
 private fun NeedPermissionBody(onCancel: () -> Unit, onOpenSettings: () -> Unit) {
     Text(
-        "Android requires explicit permission to install apps from PoPMobile. " +
+        "Android requires explicit permission to install apps from OverMobile. " +
             "Tap Open Settings, enable \"Allow from this source\", then come " +
             "back and tap Check for updates again.",
         color = Color(0xFFCCCCCC),
@@ -192,7 +192,7 @@ private fun NeedPermissionBody(onCancel: () -> Unit, onOpenSettings: () -> Unit)
         Spacer(Modifier.width(8.dp))
         Button(
             onClick = onOpenSettings,
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF49EACB))
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
         ) {
             Text("Open Settings", color = Color.Black, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
         }
@@ -224,13 +224,13 @@ private fun DownloadingBody(progress: DownloadProgress, update: UpdateInfo) {
         modifier = Modifier
             .fillMaxWidth()
             .height(6.dp)
-            .background(Color(0xFF2A2A40), RoundedCornerShape(3.dp))
+            .background(Color(0xFF1F1F26), RoundedCornerShape(3.dp))
     ) {
         Box(
             modifier = Modifier
                 .fillMaxHeight()
                 .fillMaxWidth(fraction = fraction.coerceIn(0f, 1f))
-                .background(Color(0xFF49EACB), RoundedCornerShape(3.dp))
+                .background(Color(0xFF10B981), RoundedCornerShape(3.dp))
         )
     }
     Spacer(Modifier.height(10.dp))
@@ -256,7 +256,7 @@ private fun FailedBody(reason: String, onClose: () -> Unit, onRetry: () -> Unit)
         Spacer(Modifier.width(8.dp))
         Button(
             onClick = onRetry,
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF49EACB))
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
         ) {
             Text("Retry", color = Color.Black, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
         }

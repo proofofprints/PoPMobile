@@ -11,7 +11,7 @@
  *
  * Padding byte is 0x04 (cSHAKE), NOT 0x01 (Keccak) or 0x06 (SHA-3).
  *
- * Copyright (c) 2026 Proof of Prints
+ * Copyright (c) 2026 OverBuild Labs
  */
 
 #include "keccak.h"

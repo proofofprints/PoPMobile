@@ -1,6 +1,6 @@
-# Contributing to PoPMobile
+# Contributing to OverMobile
 
-Thanks for your interest in improving PoPMobile. Contributions — code, bug reports, docs, or testing on devices we haven't covered yet — are welcome.
+Thanks for your interest in improving OverMobile. Contributions — code, bug reports, docs, or testing on devices we haven't covered yet — are welcome.
 
 ## Ways to help
 
@@ -22,7 +22,7 @@ Thanks for your interest in improving PoPMobile. Contributions — code, bug rep
 
 ```bash
 git clone https://github.com/proofofprints/PoPMobile.git
-cd PoPMobile
+cd OverMobile
 ./gradlew assembleDebug          # CLI build
 # or open the folder in Android Studio and hit Run
 ```
@@ -39,7 +39,7 @@ app/src/main/
 │   ├── service/               # Foreground MiningService (lifecycle, thermal)
 │   ├── stratum/               # Stratum v1 client
 │   ├── mining/                # JNI bridge to the native miner
-│   ├── popmanager/            # PoPManagerReporter (telemetry + remote commands)
+│   ├── popmanager/            # OverManagerReporter (telemetry + remote commands)
 │   └── thermal/               # Thermal monitor + auto-throttle
 └── res/                       # Icons, themes, strings, layouts
 ```

@@ -13,7 +13,7 @@
  *   "pending download ID" field dedupes the two paths so whichever gets
  *   there first wins.
  *
- * Copyright (c) 2026 Proof of Prints
+ * Copyright (c) 2026 OverBuild Labs
  */
 package com.proofofprints.popmobile.update
 
@@ -64,7 +64,7 @@ class UpdateDownloader(private val context: Context) {
         if (destFile.exists()) destFile.delete()
 
         val request = DownloadManager.Request(Uri.parse(update.apkUrl))
-            .setTitle("PoPMobile ${update.tagName}")
+            .setTitle("OverMobile ${update.tagName}")
             .setDescription("Downloading update…")
             .setDestinationUri(Uri.fromFile(destFile))
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)

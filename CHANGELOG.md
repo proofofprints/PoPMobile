@@ -1,7 +1,19 @@
 # Changelog
 
-All notable changes to PoPMobile are recorded here.
+All notable changes to OverMobile are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.2.0] — 2026-05-29
+### Changed
+- **Rebrand to OverBuild Labs.** The app is now **OverMobile** by **OverBuild Labs** — matches the website, OverManager desktop app, and OverMiner hardware line. Application identity (`applicationId`), on-disk preferences, and signing keypair are unchanged: existing PoPMobile installs upgrade to OverMobile in place with no loss of wallet, pool, pairing, or settings state.
+- New OverBuild Labs palette: emerald-500 primary (`#10B981`), violet-500 accent (`#8B5CF6`), near-black surfaces (`#0C0C0F` / `#16161B`). The Compose colorScheme and system status/navigation bars now follow the brand palette; one-off accent literals scattered through the dashboard cards still match the previous Kaspa-teal style and will migrate in a follow-up.
+- New OverBuild Labs launcher icon (adaptive + legacy + round) generated from the hex/cube logo.
+- Worker-name default for fresh installs is now `OverMobile` (existing installs keep their saved value).
+- Device telemetry reports `manufacturer="OverBuild Labs"` to OverManager (previously `"Proof of Prints"`).
+
+### Deferred to a later release
+- GitHub repository URLs still point at `github.com/proofofprints/...` — the org has not been renamed yet.
+- `pool.proofofprints.com`, `support@proofofprints.com`, and `www.proofofprints.com` are unchanged pending infrastructure migration.
 
 ## [1.0.14] — 2026-04-21
 ## [1.0.13] — 2026-04-21
@@ -30,9 +42,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - **Start Mining validation toast** — the button no longer silently does nothing when a field is invalid. Tapping it with bad input shows a toast naming the specific problem ("Wallet address is required", "Port must be between 1 and 65535", etc.) and refuses to start the service.
 
 ### Changed
-- **PoPManager Integration** header now reads "POPMANAGER INTEGRATION (Optional)" so new users know pairing isn't required to mine.
-- Section description rewritten: "Pair with PoPManager to monitor your mobile mining."
-- Removed the "Forget this device and re-pair" button. Deleting a device on the PoPManager side is now the canonical way to un-pair — the reporter's existing 401/404 handling already clears the local credentials and flips the app back to the pairing-code input without any user action needed here.
+- **OverManager Integration** header now reads "POPMANAGER INTEGRATION (Optional)" so new users know pairing isn't required to mine.
+- Section description rewritten: "Pair with OverManager to monitor your mobile mining."
+- Removed the "Forget this device and re-pair" button. Deleting a device on the OverManager side is now the canonical way to un-pair — the reporter's existing 401/404 handling already clears the local credentials and flips the app back to the pairing-code input without any user action needed here.
 
 ## [1.0.10] — 2026-04-18
 ### Notes
@@ -73,7 +85,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [1.0.2] — 2026-04-17
 ### Added
-- In-app update checker backed by the GitHub Releases API. Checks once per 24 h on app launch and on demand via **Settings → About → Check for updates**. Downloads the APK via `DownloadManager`, hands off to the system installer through a `FileProvider`. OS signature verification means only APKs signed with the same release keystore can install over an existing PoPMobile.
+- In-app update checker backed by the GitHub Releases API. Checks once per 24 h on app launch and on demand via **Settings → About → Check for updates**. Downloads the APK via `DownloadManager`, hands off to the system installer through a `FileProvider`. OS signature verification means only APKs signed with the same release keystore can install over an existing OverMobile.
 
 ### Changed
 - About panel version is now read from `BuildConfig.VERSION_NAME` instead of being hardcoded.
@@ -81,7 +93,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ## [1.0.1] — 2026-04-17
 ### Changed
 - Internal Kotlin package renamed `com.proofofprints.kasminer` → `com.proofofprints.popmobile`; JNI bridge function names, native library name (`libpopmobile.so`), and build namespace updated accordingly.
-- `applicationId` intentionally **kept** on the old namespace so existing v1.0.0 installs upgrade in place — settings, logs, and PoPManager pairing are preserved.
+- `applicationId` intentionally **kept** on the old namespace so existing v1.0.0 installs upgrade in place — settings, logs, and OverManager pairing are preserved.
 - Project-layout diagrams in `README.md` and `CONTRIBUTING.md` refreshed.
 
 ## [1.0.0] — 2026-04-17
@@ -95,7 +107,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - QR code scanning for the Kaspa wallet address (bundled ZXing).
 - Foreground service with persistent notification and one-tap Stop.
 - Mining log retaining the last four hours of stratum + share events.
-- PoPManager pairing with per-device API keys, telemetry every 30 s, and remote commands (`set_config`, `set_threads`, `start`, `stop`, `restart`) applied and acknowledged.
+- OverManager pairing with per-device API keys, telemetry every 30 s, and remote commands (`set_config`, `set_threads`, `start`, `stop`, `restart`) applied and acknowledged.
 
 [1.0.14]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.14
 [1.0.13]: https://github.com/proofofprints/PoPMobile/releases/tag/v1.0.13

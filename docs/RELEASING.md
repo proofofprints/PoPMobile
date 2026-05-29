@@ -1,4 +1,4 @@
-# Cutting a PoPMobile release
+# Cutting a OverMobile release
 
 Checklist to produce a signed APK, compute its checksum, and publish a GitHub release. Paste-ready commands are Windows cmd (the project's primary build environment); macOS/Linux equivalents are shown where they differ.
 
@@ -89,7 +89,7 @@ It should print one line: `<hash> *popmobile-vX.Y.Z.apk`.
 ### Release notes template
 
 ```markdown
-# PoPMobile vX.Y.Z
+# OverMobile vX.Y.Z
 
 ## What's new
 
@@ -98,7 +98,7 @@ It should print one line: `<hash> *popmobile-vX.Y.Z.apk`.
 
 ## Upgrading from v1.0.x
 
-Seamless in-place upgrade. Settings, logs, and PoPManager pairing are preserved.
+Seamless in-place upgrade. Settings, logs, and OverManager pairing are preserved.
 (Only note this when applicationId is unchanged — otherwise users must uninstall first.)
 
 ## Checksums
@@ -117,7 +117,7 @@ Or verify against the `.sha256` file in the assets:
 
 Before telling anyone about the release:
 
-1. Uninstall any existing PoPMobile from the emulator / test device
+1. Uninstall any existing OverMobile from the emulator / test device
 2. Sideload the APK you just uploaded (download from the release page, not from your local build)
 3. Mine for ~30 seconds; verify accepted shares accumulate
 4. Go to Settings → About → **Check for updates** → should say "You're on the latest version."

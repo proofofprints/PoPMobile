@@ -2,5 +2,5 @@
 #
 # Current files:
 #   PoPMobile_MainDashboard.png   — main screen while mining
-#   PoPMobile_Settings.png        — settings panel (miner configuration + PoPManager)
+#   PoPMobile_Settings.png        — settings panel (miner configuration + OverManager)
 #   PoPMobile_Logging.png         — mining log view

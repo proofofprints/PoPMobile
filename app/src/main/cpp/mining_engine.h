@@ -1,7 +1,7 @@
 /**
  * Mining engine — manages multi-threaded hash computation.
  *
- * Copyright (c) 2026 Proof of Prints
+ * Copyright (c) 2026 OverBuild Labs
  */
 
 #ifndef MINING_ENGINE_H

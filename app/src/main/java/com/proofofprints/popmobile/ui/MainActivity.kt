@@ -3,7 +3,7 @@
  *
  * Dashboard shows: hashrate, shares, pool status, settings.
  *
- * Copyright (c) 2026 Proof of Prints
+ * Copyright (c) 2026 OverBuild Labs
  */
 package com.proofofprints.popmobile.ui
 
@@ -28,9 +28,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -63,7 +64,7 @@ class MainActivity : ComponentActivity() {
     // Callback registered when launchWalletQrScanner / launchPairingQrScanner
     // is called, invoked once the ZXing scanner activity returns a result.
     // The handler receives the raw scanned string and is responsible for
-    // whichever parsing it needs (wallet address vs PoPManager pairing JSON).
+    // whichever parsing it needs (wallet address vs OverManager pairing JSON).
     private var pendingScanHandler: ((String) -> Unit)? = null
 
     private val qrScanLauncher = registerForActivityResult(
@@ -113,7 +114,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        // If the user has configured PoPManager, start the service in the
+        // If the user has configured OverManager, start the service in the
         // foreground so the reporter keeps running when the app is backgrounded.
         val popPrefs = getSharedPreferences("popmanager", Context.MODE_PRIVATE)
         val serverUrl = popPrefs.getString("server_url", "") ?: ""
@@ -149,7 +150,7 @@ class MainActivity : ComponentActivity() {
             )
         }
         var wallet by remember { mutableStateOf(prefs.getString("wallet", "") ?: "") }
-        var worker by remember { mutableStateOf(prefs.getString("worker", "PoPMobile") ?: "PoPMobile") }
+        var worker by remember { mutableStateOf(prefs.getString("worker", "OverMobile") ?: "OverMobile") }
         var threads by remember { mutableIntStateOf(prefs.getInt("threads", 2)) }
         var showSettings by remember { mutableStateOf(false) }
         var showLogs by remember { mutableStateOf(false) }
@@ -231,7 +232,7 @@ class MainActivity : ComponentActivity() {
                     protectionSeverity = it.protectionSeverity
                 }
 
-                // Re-read config from prefs so remote PoPManager commands
+                // Re-read config from prefs so remote OverManager commands
                 // (set_config / set_threads) reflect in the UI within ~1s of
                 // being applied. Only update when the stored value differs
                 // from the current state to avoid fighting user input while
@@ -240,7 +241,7 @@ class MainActivity : ComponentActivity() {
                 if (freshPoolUrl != poolUrl && !showSettings) poolUrl = freshPoolUrl
                 val freshWallet = prefs.getString("wallet", "") ?: ""
                 if (freshWallet != wallet && !showSettings) wallet = freshWallet
-                val freshWorker = prefs.getString("worker", "PoPMobile") ?: "PoPMobile"
+                val freshWorker = prefs.getString("worker", "OverMobile") ?: "OverMobile"
                 if (freshWorker != worker && !showSettings) worker = freshWorker
                 val freshThreads = prefs.getInt("threads", 2)
                 if (freshThreads != threads && !showSettings) threads = freshThreads
@@ -274,58 +275,35 @@ class MainActivity : ComponentActivity() {
                     title = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Image(
-                                painter = painterResource(id = R.drawable.kaspa_logo),
-                                contentDescription = "Kaspa Logo",
-                                modifier = Modifier.size(32.dp)
+                                painter = painterResource(id = R.drawable.overbuild_logo),
+                                contentDescription = "OverBuild Labs Logo",
+                                modifier = Modifier.size(28.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                "PoPMobile",
+                                "OverMobile",
+                                color = Color.White,
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
                             )
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color(0xFF1A1A2E),
-                        titleContentColor = Color(0xFF49EACB)
+                        containerColor = Color(0xFF16161B),
+                        titleContentColor = Color(0xFF10B981)
                     ),
                     actions = {
-                        // Info button with circle border
                         IconButton(onClick = {
                             if (showAbout) { showAbout = false }
                             else { showAbout = true; showSettings = false; showLogs = false }
                         }) {
-                            Box(
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .background(Color.Transparent, shape = androidx.compose.foundation.shape.CircleShape)
-                                    .then(Modifier.padding(0.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    "i",
-                                    color = Color(0xFF49EACB),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier
-                                        .background(Color.Transparent, shape = androidx.compose.foundation.shape.CircleShape)
-                                )
-                                // Circle outline
-                                Box(modifier = Modifier
-                                    .size(24.dp)
-                                    .background(Color.Transparent)
-                                    .then(
-                                        Modifier.drawBehind {
-                                            drawCircle(
-                                                color = androidx.compose.ui.graphics.Color(0xFF49EACB),
-                                                radius = size.minDimension / 2,
-                                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f)
-                                            )
-                                        }
-                                    )
-                                )
-                            }
+                            Icon(
+                                imageVector = Icons.Outlined.Info,
+                                contentDescription = "About",
+                                tint = Color(0xFF10B981),
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
                         // Logs / Dashboard toggle
                         TextButton(onClick = {
@@ -334,7 +312,7 @@ class MainActivity : ComponentActivity() {
                         }) {
                             Text(
                                 if (showLogs || showAbout || showSettings) "Dashboard" else "Logs",
-                                color = Color(0xFF49EACB)
+                                color = Color(0xFF10B981)
                             )
                         }
                         // Settings button
@@ -342,7 +320,7 @@ class MainActivity : ComponentActivity() {
                             if (showSettings) { showSettings = false }
                             else { showSettings = true; showLogs = false; showAbout = false }
                         }) {
-                            Text("Settings", color = Color(0xFF49EACB))
+                            Text("Settings", color = Color(0xFF10B981))
                         }
                     }
                 )
@@ -352,7 +330,7 @@ class MainActivity : ComponentActivity() {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color(0xFF0F0F23))
+                        .background(Color(0xFF0C0C0F))
                         .padding(padding)
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -413,7 +391,7 @@ class MainActivity : ComponentActivity() {
                     .orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
                 val dashboardModifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFF0F0F23))
+                    .background(Color(0xFF0C0C0F))
                     .padding(padding)
                     .then(
                         if (isLandscape) Modifier.verticalScroll(rememberScrollState())
@@ -437,7 +415,7 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(150.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF16161B)),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Column(
@@ -449,15 +427,16 @@ class MainActivity : ComponentActivity() {
                         ) {
                             Text(
                                 "HASHRATE",
-                                color = Color(0xFF49EACB),
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace
+                                color = Color(0xFF10B981),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                fontFamily = FontFamily.SansSerif,
+                                letterSpacing = 3.sp
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 formatHashrate(hashrate),
-                                color = Color(0xFF49EACB),
+                                color = Color.White,
                                 fontSize = 44.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
@@ -472,7 +451,7 @@ class MainActivity : ComponentActivity() {
                         StatCardCompact(
                             label = "SHARES",
                             value = if (sharesRejected > 0) "$sharesFound/${sharesRejected}r" else sharesFound.toString(),
-                            color = Color(0xFFFFD700),
+                            color = Color(0xFF8B5CF6),
                             modifier = Modifier.weight(1f)
                         )
                         StatCardCompact(
@@ -499,8 +478,8 @@ class MainActivity : ComponentActivity() {
                             color = when {
                                 cpuTemp >= 55 -> Color(0xFFFF4444)
                                 cpuTemp >= 50 -> Color(0xFFFF8C00)
-                                cpuTemp >= 45 -> Color(0xFFFFD700)
-                                else -> Color(0xFF49EACB)
+                                cpuTemp >= 45 -> Color(0xFF8B5CF6)
+                                else -> Color(0xFF10B981)
                             },
                             modifier = Modifier.weight(1f)
                         )
@@ -509,8 +488,8 @@ class MainActivity : ComponentActivity() {
                             value = "$batteryPercent%",
                             color = when {
                                 batteryPercent <= 10 -> Color(0xFFFF4444)
-                                batteryPercent <= 20 -> Color(0xFFFFD700)
-                                else -> Color(0xFF49EACB)
+                                batteryPercent <= 20 -> Color(0xFF8B5CF6)
+                                else -> Color(0xFF10B981)
                             },
                             modifier = Modifier.weight(1f)
                         )
@@ -520,8 +499,8 @@ class MainActivity : ComponentActivity() {
                             color = when (thermalState) {
                                 "CRITICAL" -> Color(0xFFFF4444)
                                 "THROTTLE" -> Color(0xFFFF8C00)
-                                "WARNING" -> Color(0xFFFFD700)
-                                else -> Color(0xFF49EACB)
+                                "WARNING" -> Color(0xFF8B5CF6)
+                                else -> Color(0xFF10B981)
                             },
                             modifier = Modifier.weight(1f)
                         )
@@ -576,7 +555,7 @@ class MainActivity : ComponentActivity() {
                             .fillMaxWidth()
                             .height(64.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (sessionLive) Color(0xFFFF4444) else Color(0xFF49EACB)
+                            containerColor = if (sessionLive) Color(0xFFFF4444) else Color(0xFF10B981)
                         ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
@@ -619,27 +598,27 @@ class MainActivity : ComponentActivity() {
             else -> "IDLE"
         }
         val statusColor = when {
-            isRunning -> Color(0xFF49EACB)
-            poolState == MiningService.PoolState.CONNECTING -> Color(0xFFFFD700)
-            poolState == MiningService.PoolState.CONNECTED -> Color(0xFFFFD700)
-            poolState == MiningService.PoolState.ERROR -> Color(0xFFFFD700)  // yellow, not red
+            isRunning -> Color(0xFF10B981)
+            poolState == MiningService.PoolState.CONNECTING -> Color(0xFF8B5CF6)
+            poolState == MiningService.PoolState.CONNECTED -> Color(0xFF8B5CF6)
+            poolState == MiningService.PoolState.ERROR -> Color(0xFF8B5CF6)  // yellow, not red
             else -> Color.Gray
         }
         // Right-side pool line
         val (poolLabel, poolColor) = when (poolState) {
             MiningService.PoolState.CONNECTED ->
-                "POOL: ONLINE" to Color(0xFF49EACB)
+                "POOL: ONLINE" to Color(0xFF10B981)
             MiningService.PoolState.CONNECTING ->
-                "POOL: CONNECTING..." to Color(0xFFFFD700)
+                "POOL: CONNECTING..." to Color(0xFF8B5CF6)
             MiningService.PoolState.ERROR ->
-                "POOL: ${(poolErrorReason ?: "ERROR").uppercase()}" to Color(0xFFFFD700)
+                "POOL: ${(poolErrorReason ?: "ERROR").uppercase()}" to Color(0xFF8B5CF6)
             MiningService.PoolState.DISCONNECTED ->
                 "POOL: OFFLINE" to Color(0xFFFF4444)
         }
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF16161B)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Row(
@@ -690,13 +669,13 @@ class MainActivity : ComponentActivity() {
         val bg = when (severity) {
             MiningService.ProtectionSeverity.CRITICAL -> Color(0xFF3A0F1A)
             MiningService.ProtectionSeverity.WARNING -> Color(0xFF3A2A0F)
-            MiningService.ProtectionSeverity.INFO -> Color(0xFF0F2A3A)
-            MiningService.ProtectionSeverity.NONE -> Color(0xFF1A1A2E)
+            MiningService.ProtectionSeverity.INFO -> Color(0xFF0C0C0F)
+            MiningService.ProtectionSeverity.NONE -> Color(0xFF16161B)
         }
         val fg = when (severity) {
             MiningService.ProtectionSeverity.CRITICAL -> Color(0xFFFF6B6B)
-            MiningService.ProtectionSeverity.WARNING -> Color(0xFFFFD700)
-            MiningService.ProtectionSeverity.INFO -> Color(0xFF49EACB)
+            MiningService.ProtectionSeverity.WARNING -> Color(0xFF8B5CF6)
+            MiningService.ProtectionSeverity.INFO -> Color(0xFF10B981)
             MiningService.ProtectionSeverity.NONE -> Color.White
         }
         Box(
@@ -726,16 +705,28 @@ class MainActivity : ComponentActivity() {
     ) {
         Card(
             modifier = modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF16161B)),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
-                Text(label, color = Color.Gray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                Spacer(modifier = Modifier.height(4.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    label,
+                    color = Color.Gray,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = FontFamily.SansSerif,
+                    letterSpacing = 1.5.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     value,
                     color = color,
-                    fontSize = 24.sp,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace
                 )
@@ -753,22 +744,30 @@ class MainActivity : ComponentActivity() {
     ) {
         Card(
             modifier = modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF16161B)),
             shape = RoundedCornerShape(10.dp)
         ) {
             Column(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(label, color = Color.Gray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    label,
+                    color = Color.Gray,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = FontFamily.SansSerif,
+                    letterSpacing = 1.5.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     value,
                     color = color,
-                    fontSize = 18.sp,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
-                    maxLines = 1
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
             }
         }
@@ -789,7 +788,7 @@ class MainActivity : ComponentActivity() {
         val maxThreads = Runtime.getRuntime().availableProcessors()
         var showSaved by remember { mutableStateOf(false) }
 
-        // PoPManager settings (read/write directly against the popmanager prefs file
+        // OverManager settings (read/write directly against the popmanager prefs file
         // so the reporter in MiningService sees changes immediately)
         val popPrefs = getSharedPreferences("popmanager", Context.MODE_PRIVATE)
         val defaultName = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
@@ -818,7 +817,7 @@ class MainActivity : ComponentActivity() {
             // ========= MINER CONFIGURATION =========
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF16161B)),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(
@@ -827,7 +826,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     Text(
                         "MINER CONFIGURATION",
-                        color = Color(0xFF49EACB),
+                        color = Color(0xFF10B981),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
@@ -879,7 +878,7 @@ class MainActivity : ComponentActivity() {
                         ) {
                             Text(
                                 "Scan QR",
-                                color = Color(0xFF49EACB),
+                                color = Color(0xFF10B981),
                                 fontSize = 12.sp,
                                 fontFamily = FontFamily.Monospace
                             )
@@ -901,8 +900,8 @@ class MainActivity : ComponentActivity() {
                         valueRange = 1f..maxThreads.toFloat(),
                         steps = maxThreads - 2,
                         colors = SliderDefaults.colors(
-                            thumbColor = Color(0xFF49EACB),
-                            activeTrackColor = Color(0xFF49EACB)
+                            thumbColor = Color(0xFF10B981),
+                            activeTrackColor = Color(0xFF10B981)
                         )
                     )
 
@@ -921,10 +920,10 @@ class MainActivity : ComponentActivity() {
             // ========= THERMAL DIAGNOSTICS =========
             ThermalDiagnosticsCard()
 
-            // ========= POPMANAGER INTEGRATION =========
+            // ========= OVERMANAGER INTEGRATION =========
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF16161B)),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(
@@ -932,14 +931,14 @@ class MainActivity : ComponentActivity() {
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        "POPMANAGER INTEGRATION (Optional)",
-                        color = Color(0xFF49EACB),
+                        "OVERMANAGER INTEGRATION (Optional)",
+                        color = Color(0xFF10B981),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
                     )
                     Text(
-                        "Pair with PoPManager to monitor your mobile mining.",
+                        "Pair with OverManager to monitor your mobile mining.",
                         color = Color.Gray,
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace
@@ -951,9 +950,9 @@ class MainActivity : ComponentActivity() {
                         popServerUrl.isBlank() ->
                             "Not configured" to Color.Gray
                         popPairingRequired || !hasStoredKey ->
-                            "Pairing required — enter code from PoPManager" to Color(0xFFFFD700)
+                            "Pairing required — enter code from OverManager" to Color(0xFF8B5CF6)
                         popLastStatus == "reporting" ->
-                            "Paired · reporting" to Color(0xFF49EACB)
+                            "Paired · reporting" to Color(0xFF10B981)
                         popLastStatus == "error" ->
                             "Error: ${popLastError ?: "unknown"}" to Color(0xFFFF6B6B)
                         else ->
@@ -962,7 +961,7 @@ class MainActivity : ComponentActivity() {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFF0F0F23), shape = RoundedCornerShape(6.dp))
+                            .background(Color(0xFF0C0C0F), shape = RoundedCornerShape(6.dp))
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Text(
@@ -974,7 +973,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // Scan pairing QR displayed by PoPManager. On success we
+                    // Scan pairing QR displayed by OverManager. On success we
                     // fill both the Server URL and Pairing Code fields so the
                     // user can tap Pair without typing anything.
                     OutlinedButton(
@@ -990,7 +989,7 @@ class MainActivity : ComponentActivity() {
                     ) {
                         Text(
                             "SCAN PAIRING QR",
-                            color = Color(0xFF49EACB),
+                            color = Color(0xFF10B981),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace
@@ -1027,13 +1026,13 @@ class MainActivity : ComponentActivity() {
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF49EACB),
+                                focusedBorderColor = Color(0xFF10B981),
                                 unfocusedBorderColor = Color.Gray
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
                         Text(
-                            "Get the current code from PoPManager → Mobile Miners → Add Device.",
+                            "Get the current code from OverManager → Mobile Miners → Add Device.",
                             color = Color.Gray,
                             fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace
@@ -1072,7 +1071,7 @@ class MainActivity : ComponentActivity() {
                         ) {
                             Text(
                                 if (popTesting) "Testing..." else "Test Connection",
-                                color = Color(0xFF49EACB),
+                                color = Color(0xFF10B981),
                                 fontSize = 12.sp,
                                 fontFamily = FontFamily.Monospace
                             )
@@ -1112,8 +1111,8 @@ class MainActivity : ComponentActivity() {
                                 popPairingCode.length == 6 &&
                                 popServerUrl.isNotBlank(),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF49EACB),
-                                disabledContainerColor = Color(0xFF2A2A3E)
+                                containerColor = Color(0xFF10B981),
+                                disabledContainerColor = Color(0xFF1F1F26)
                             )
                         ) {
                             Text(
@@ -1130,7 +1129,7 @@ class MainActivity : ComponentActivity() {
                     popTestResult?.let {
                         Text(
                             it,
-                            color = if (it.startsWith("OK")) Color(0xFF49EACB) else Color(0xFFFF6B6B),
+                            color = if (it.startsWith("OK")) Color(0xFF10B981) else Color(0xFFFF6B6B),
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace
                         )
@@ -1138,7 +1137,7 @@ class MainActivity : ComponentActivity() {
                     popPairResult?.let {
                         Text(
                             it,
-                            color = if (it.startsWith("Paired")) Color(0xFF49EACB) else Color(0xFFFF6B6B),
+                            color = if (it.startsWith("Paired")) Color(0xFF10B981) else Color(0xFFFF6B6B),
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace
                         )
@@ -1154,7 +1153,7 @@ class MainActivity : ComponentActivity() {
                 }
                 Text(
                     "Settings saved!",
-                    color = Color(0xFF49EACB),
+                    color = Color(0xFF10B981),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
@@ -1167,7 +1166,7 @@ class MainActivity : ComponentActivity() {
             Button(
                 onClick = {
                     onSave()
-                    // Persist PoPManager settings directly to its prefs file
+                    // Persist OverManager settings directly to its prefs file
                     popPrefs.edit()
                         .putString("server_url", popServerUrl.trimEnd('/'))
                         .putString("device_name", popDeviceName)
@@ -1177,12 +1176,12 @@ class MainActivity : ComponentActivity() {
                     // user points at a different server, the reporter's 401
                     // response from the new host will trigger re-pair
                     // automatically. If the admin deletes the device from
-                    // PoPManager, the 404 path does the same.
+                    // OverManager, the 404 path does the same.
                     miningService?.let { svc ->
                         svc.popManagerReporter.stop()
                         svc.popManagerReporter.start()
                     }
-                    // If PoPManager is configured and service isn't running,
+                    // If OverManager is configured and service isn't running,
                     // kick it so the reporter begins immediately.
                     if (popServerUrl.isNotBlank()) {
                         val intent = Intent(this@MainActivity, MiningService::class.java).apply {
@@ -1193,7 +1192,7 @@ class MainActivity : ComponentActivity() {
                     showSaved = true
                 },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF49EACB)),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text("SAVE", color = Color.Black, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
@@ -1221,14 +1220,14 @@ class MainActivity : ComponentActivity() {
         var showDisableDialog by remember { mutableStateOf(false) }
         var showExtPowerDialog by remember { mutableStateOf(false) }
 
-        val accent = Color(0xFF49EACB)
+        val accent = Color(0xFF10B981)
         val warningColor = Color(0xFFFF6B6B)
         val labelColor = Color.White
         val subColor = Color.Gray
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF16161B)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(
@@ -1285,7 +1284,7 @@ class MainActivity : ComponentActivity() {
                     TempSlider(
                         label = "Warn at",
                         value = warnTemp,
-                        color = Color(0xFFFFD700),
+                        color = Color(0xFF8B5CF6),
                         onValueChange = {
                             warnTemp = it
                             prefs.warnTempC = it
@@ -1486,7 +1485,7 @@ class MainActivity : ComponentActivity() {
                         Text("Cancel", color = accent, fontFamily = FontFamily.Monospace)
                     }
                 },
-                containerColor = Color(0xFF1A1A2E)
+                containerColor = Color(0xFF16161B)
             )
         }
 
@@ -1527,7 +1526,7 @@ class MainActivity : ComponentActivity() {
                         Text("Cancel", color = Color.Gray, fontFamily = FontFamily.Monospace)
                     }
                 },
-                containerColor = Color(0xFF1A1A2E)
+                containerColor = Color(0xFF16161B)
             )
         }
     }
@@ -1555,16 +1554,16 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        val accent = Color(0xFF49EACB)
+        val accent = Color(0xFF10B981)
         val labelColor = Color.White
         val subColor = Color.Gray
-        val pickColor = Color(0xFF49EACB)
-        val cpuHintColor = Color(0xFFFFD700)
+        val pickColor = Color(0xFF10B981)
+        val cpuHintColor = Color(0xFF8B5CF6)
         val unusableColor = Color(0xFF666666)
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF16161B)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(
@@ -1692,7 +1691,7 @@ class MainActivity : ComponentActivity() {
                             Button(
                                 onClick = { snapshot = service.getThermalDiagnostics() },
                                 modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A2A3E))
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F1F26))
                             ) {
                                 Text("Refresh", color = accent, fontFamily = FontFamily.Monospace)
                             }
@@ -1700,11 +1699,11 @@ class MainActivity : ComponentActivity() {
                                 onClick = {
                                     val report = buildThermalReport(snap)
                                     val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                    cm.setPrimaryClip(android.content.ClipData.newPlainText("PoPMobile thermal report", report))
+                                    cm.setPrimaryClip(android.content.ClipData.newPlainText("OverMobile thermal report", report))
                                     android.widget.Toast.makeText(context, "Report copied", android.widget.Toast.LENGTH_SHORT).show()
                                 },
                                 modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A2A3E))
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F1F26))
                             ) {
                                 Text("Copy report", color = accent, fontFamily = FontFamily.Monospace)
                             }
@@ -1720,7 +1719,7 @@ class MainActivity : ComponentActivity() {
      *  GitHub issue without reformatting. */
     private fun buildThermalReport(snap: com.proofofprints.popmobile.service.ThermalMonitor.ThermalDiagnostics): String {
         val sb = StringBuilder()
-        sb.append("PoPMobile thermal diagnostics\n")
+        sb.append("OverMobile thermal diagnostics\n")
         sb.append("Device: ${snap.manufacturer} ${snap.deviceModel}\n")
         sb.append("SoC: ${snap.socModel}\n")
         sb.append("Android API: ${snap.androidApi}\n")
@@ -1795,11 +1794,11 @@ class MainActivity : ComponentActivity() {
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White,
-                    focusedBorderColor = Color(0xFF49EACB),
+                    focusedBorderColor = Color(0xFF10B981),
                     unfocusedBorderColor = Color(0xFF333333),
-                    focusedLabelColor = Color(0xFF49EACB),
+                    focusedLabelColor = Color(0xFF10B981),
                     unfocusedLabelColor = Color.Gray,
-                    cursorColor = Color(0xFF49EACB),
+                    cursorColor = Color(0xFF10B981),
                     errorBorderColor = errorColor,
                     errorLabelColor = errorColor,
                     errorCursorColor = errorColor
@@ -1827,7 +1826,7 @@ class MainActivity : ComponentActivity() {
         qrScanLauncher.launch(defaultScanOptions())
     }
 
-    /** Launch the shared QR scanner for PoPManager pairing. On a successful
+    /** Launch the shared QR scanner for OverManager pairing. On a successful
      *  scan + JSON validation, [onResult] receives (serverUrl, pairingCode)
      *  so the caller can drop them straight into the matching text fields. */
     private fun launchPairingQrScanner(onResult: (server: String, code: String) -> Unit) {
@@ -1844,7 +1843,7 @@ class MainActivity : ComponentActivity() {
             captureActivity = QrScannerActivity::class.java
         }
 
-    /** Parse a PoPManager pairing QR payload of the form:
+    /** Parse a OverManager pairing QR payload of the form:
      *   {"v":1,"type":"popmanager-register","url":"...","code":"..."}
      *  On success calls [onResult] with the extracted server URL + code.
      *  On any validation failure shows a toast and returns. */
@@ -1860,17 +1859,17 @@ class MainActivity : ComponentActivity() {
         val parsed = try {
             com.google.gson.JsonParser.parseString(trimmed).asJsonObject
         } catch (e: Exception) {
-            toast("Not a PoPManager QR code")
+            toast("Not a OverManager QR code")
             return
         }
         val type = parsed.get("type")?.asString
         if (type != "popmanager-register") {
-            toast("Not a PoPManager QR code")
+            toast("Not a OverManager QR code")
             return
         }
         val version = parsed.get("v")?.asInt ?: 0
         if (version > 1) {
-            toast("Update PoPMiner Mobile to scan this code")
+            toast("Update OverMiner Mobile to scan this code")
             return
         }
         val url = parsed.get("url")?.asString?.trim().orEmpty()
@@ -1880,7 +1879,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         onResult(url, code)
-        LogManager.info("Scanned PoPManager pairing QR: $url")
+        LogManager.info("Scanned OverManager pairing QR: $url")
         toast("Pairing QR scanned")
     }
 
@@ -2000,7 +1999,7 @@ class MainActivity : ComponentActivity() {
         val dateFormat = remember { java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()) }
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF16161B)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -2011,7 +2010,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     Text(
                         "MINING LOG (${logs.size})",
-                        color = Color(0xFF49EACB),
+                        color = Color(0xFF10B981),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
@@ -2038,8 +2037,8 @@ class MainActivity : ComponentActivity() {
                         "$ts $tag ${entry.message}",
                         color = when (entry.level) {
                             LogLevel.ERROR -> Color(0xFFFF4444)
-                            LogLevel.WARN -> Color(0xFFFFD700)
-                            LogLevel.INFO -> Color(0xFF49EACB)
+                            LogLevel.WARN -> Color(0xFF8B5CF6)
+                            LogLevel.INFO -> Color(0xFF10B981)
                         },
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
@@ -2059,7 +2058,7 @@ class MainActivity : ComponentActivity() {
     ) {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF16161B)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(
@@ -2068,21 +2067,16 @@ class MainActivity : ComponentActivity() {
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.kaspa_logo_large),
-                    contentDescription = "Kaspa Logo",
+                    painter = painterResource(id = R.drawable.overbuild_logo_large),
+                    contentDescription = "OverBuild Labs Logo",
                     modifier = Modifier.size(120.dp)
                 )
                 Text(
-                    "PoPMobile",
-                    color = Color(0xFF49EACB),
+                    "OverMobile",
+                    color = Color(0xFF10B981),
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace
-                )
-                Image(
-                    painter = painterResource(id = R.drawable.pop_logo),
-                    contentDescription = "Proof of Prints Logo",
-                    modifier = Modifier.size(80.dp)
                 )
                 Text(
                     "v${BuildConfig.VERSION_NAME}",
@@ -2093,7 +2087,7 @@ class MainActivity : ComponentActivity() {
                 OutlinedButton(
                     onClick = onCheckForUpdate,
                     enabled = !checking,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF49EACB))
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF10B981))
                 ) {
                     Text(
                         if (checking) "Checking..." else "Check for updates",
@@ -2109,7 +2103,7 @@ class MainActivity : ComponentActivity() {
                 if (resultMessage != null) {
                     Text(
                         resultMessage,
-                        color = Color(0xFF49EACB),
+                        color = Color(0xFF10B981),
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace
                     )
@@ -2120,20 +2114,20 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.padding(vertical = 8.dp)
                 )
                 Text(
-                    "Developed by Proof of Prints",
+                    "Developed by OverBuild Labs",
                     color = Color.White,
                     fontSize = 16.sp,
                     fontFamily = FontFamily.Monospace
                 )
                 Text(
-                    "support@proofofprints.com",
-                    color = Color(0xFF49EACB),
+                    "support@overbuildlabs.com",
+                    color = Color(0xFF10B981),
                     fontSize = 14.sp,
                     fontFamily = FontFamily.Monospace
                 )
                 Text(
-                    "https://www.proofofprints.com",
-                    color = Color(0xFF49EACB),
+                    "https://www.overbuildlabs.com",
+                    color = Color(0xFF10B981),
                     fontSize = 14.sp,
                     fontFamily = FontFamily.Monospace
                 )

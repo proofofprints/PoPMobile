@@ -6,7 +6,7 @@
  *   - "ProofOfWorkHash" for outer PoW hash (80 bytes input)
  *   - "HeavyHash" for inner heavy hash (32 bytes input)
  *
- * Copyright (c) 2026 Proof of Prints
+ * Copyright (c) 2026 OverBuild Labs
  */
 
 #ifndef KECCAK_H

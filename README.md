@@ -1,6 +1,6 @@
-# PoPMobile
+# OverMobile
 
-Kaspa kHeavyHash miner for Android, with optional [PoPManager](https://github.com/proofofprints/PoPManager) integration for remote monitoring and control.
+Kaspa kHeavyHash miner for Android, with optional [OverManager](https://github.com/proofofprints/PoPManager) integration for remote monitoring and control.
 
 > **Low hashrate expected on mobile devices.** Do not expect meaningful profit — treat it as lottery-style mining.
 
@@ -21,7 +21,7 @@ Kaspa kHeavyHash miner for Android, with optional [PoPManager](https://github.co
 - **Configurable thread count** (1…CPU cores) with a warning band for heavy settings
 - **Foreground service** keeps mining alive in the background with a persistent notification and a one-tap Stop action
 - **Mining log** — the last 4 hours of stratum/hashing events, viewable from the Logs tab
-- **PoPManager integration** — pair once with a 6-digit code, then telemetry posts every 30 s and remote commands (`set_config`, `set_threads`, `start`, `stop`, `restart`) are applied and acknowledged
+- **OverManager integration** — pair once with a 6-digit code, then telemetry posts every 30 s and remote commands (`set_config`, `set_threads`, `start`, `stop`, `restart`) are applied and acknowledged
 
 ## Requirements
 
@@ -44,7 +44,7 @@ Kaspa kHeavyHash miner for Android, with optional [PoPManager](https://github.co
 
 ```bash
 git clone https://github.com/proofofprints/PoPMobile.git
-cd PoPMobile
+cd OverMobile
 # Open in Android Studio, or build from the CLI:
 ./gradlew assembleDebug        # unsigned debug APK
 ./gradlew assembleRelease      # signed release APK (requires keystore.properties — see below)
@@ -60,7 +60,7 @@ After first launch, open **Settings**:
 | --- | --- |
 | **Pool URL** | `stratum+tcp://host:port` — e.g. `stratum+tcp://pool.proofofprints.com:5558` |
 | **Wallet Address** | Your `kaspa:…` payout address. Paste it, or tap **Scan QR** to use the camera |
-| **Worker Name** | Any label you like — shows up in pool stats. Defaults to `PoPMobile` |
+| **Worker Name** | Any label you like — shows up in pool stats. Defaults to `OverMobile` |
 | **Threads** | How many CPU cores to mine on. More threads = more heat and battery drain |
 
 Tap **SAVE** (the "Settings saved!" notice appears above the button), then go back to the Dashboard and tap **START MINING**.
@@ -73,33 +73,33 @@ Tap **SAVE** (the "Settings saved!" notice appears above the button), then go ba
 
 All three are accepted; the app normalises to the bare form before saving.
 
-## PoPManager integration
+## OverManager integration
 
-[PoPManager](https://github.com/proofofprints/PoPManager) is a self-hosted dashboard that can monitor and control multiple Kaspa miners (including Iceriver ASICs and PoPMobile instances).
+[OverManager](https://github.com/proofofprints/PoPManager) is a self-hosted dashboard that can monitor and control multiple Kaspa miners (including Iceriver ASICs and OverMobile instances).
 
 ### Pair a device
 
-1. In PoPManager, click **Add Miner → Pairing Code**. Copy the 6-digit code.
-2. In PoPMobile → **Settings** → **PoPManager Integration**:
+1. In OverManager, click **Add Miner → Pairing Code**. Copy the 6-digit code.
+2. In OverMobile → **Settings** → **OverManager Integration**:
    - **Server URL**: `http://<popmanager-host>:8787`
    - **Device Name**: any label (e.g. `Pixel-6-garage`)
    - Tap **Pair**, enter the 6-digit code
-3. Watch for the green `Paired · reporting` badge. The phone appears in the PoPManager dashboard within ~30 s.
+3. Watch for the green `Paired · reporting` badge. The phone appears in the OverManager dashboard within ~30 s.
 
 Once paired, the API key is stored on-device and every subsequent report authenticates automatically.
 
-### What PoPManager sees
+### What OverManager sees
 
 The reporter posts telemetry every 30 s whether the miner is running or idle:
 
 - Hashrate, accepted/rejected shares, total hashes
 - CPU temperature, battery percentage, thermal state (`NORMAL` / `WARNING` / `THROTTLE` / `CRITICAL`)
 - Active thread count and user-configured thread target
-- Pool URL and status, worker name, manufacturer (`Proof of Prints`), model (`Mobile`)
+- Pool URL and status, worker name, manufacturer (`OverBuild Labs`), model (`Mobile`)
 
 ### Remote commands
 
-PoPManager can push these commands via the `/report` response; the phone applies them and acknowledges in the next report:
+OverManager can push these commands via the `/report` response; the phone applies them and acknowledges in the next report:
 
 | Command | Effect |
 | --- | --- |
@@ -141,7 +141,7 @@ app/src/main/
 │   ├── service/           # Foreground MiningService (pool connection, thermal, lifecycle)
 │   ├── stratum/           # Stratum v1 client
 │   ├── mining/            # JNI bridge to the native miner
-│   ├── popmanager/        # PoPManagerReporter (telemetry + remote commands)
+│   ├── popmanager/        # OverManagerReporter (telemetry + remote commands)
 │   └── thermal/           # ThermalMonitor + auto-throttling
 └── res/                   # Resources (icons, themes, strings)
 ```
@@ -158,4 +158,4 @@ The top-level `KASDeck.ino` and `KASDECK_PORT_REFERENCE.md` are the upstream ESP
 
 MIT — see [LICENSE](LICENSE).
 
-© 2026 Proof of Prints
+© 2026 OverBuild Labs
