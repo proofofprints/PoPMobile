@@ -274,13 +274,14 @@ class MainActivity : ComponentActivity() {
                     title = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Image(
-                                painter = painterResource(id = R.drawable.kaspa_logo),
-                                contentDescription = "Kaspa Logo",
-                                modifier = Modifier.size(32.dp)
+                                painter = painterResource(id = R.drawable.overbuild_logo),
+                                contentDescription = "OverBuild Labs Logo",
+                                modifier = Modifier.size(28.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 "OverMobile",
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
                             )
@@ -2068,8 +2069,8 @@ class MainActivity : ComponentActivity() {
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.kaspa_logo_large),
-                    contentDescription = "Kaspa Logo",
+                    painter = painterResource(id = R.drawable.overbuild_logo_large),
+                    contentDescription = "OverBuild Labs Logo",
                     modifier = Modifier.size(120.dp)
                 )
                 Text(
@@ -2078,11 +2079,6 @@ class MainActivity : ComponentActivity() {
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace
-                )
-                Image(
-                    painter = painterResource(id = R.drawable.pop_logo),
-                    contentDescription = "OverBuild Labs Logo",
-                    modifier = Modifier.size(80.dp)
                 )
                 Text(
                     "v${BuildConfig.VERSION_NAME}",

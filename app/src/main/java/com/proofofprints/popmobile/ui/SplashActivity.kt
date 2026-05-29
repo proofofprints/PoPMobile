@@ -1,5 +1,7 @@
 /**
- * Splash screen — shows Kaspa logo first, then PoP logo, then navigates to MainActivity.
+ * Splash screen — phase 0 shows the OverBuild Labs logo with the
+ * OverMobile product name, phase 1 cross-fades to the company name,
+ * then navigates to MainActivity.
  *
  * Copyright (c) 2026 OverBuild Labs
  */
@@ -80,8 +82,8 @@ class SplashActivity : ComponentActivity() {
                 modifier = Modifier.alpha(kaspaAlpha)
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.kaspa_logo_large),
-                    contentDescription = "Kaspa Logo",
+                    painter = painterResource(id = R.drawable.overbuild_logo_large),
+                    contentDescription = "OverBuild Labs Logo",
                     modifier = Modifier.size(180.dp)
                 )
 
