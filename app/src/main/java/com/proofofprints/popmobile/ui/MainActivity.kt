@@ -287,8 +287,8 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color(0xFF1A1A2E),
-                        titleContentColor = Color(0xFF49EACB)
+                        containerColor = Color(0xFF162720),
+                        titleContentColor = Color(0xFF10B981)
                     ),
                     actions = {
                         // Info button with circle border
@@ -305,7 +305,7 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 Text(
                                     "i",
-                                    color = Color(0xFF49EACB),
+                                    color = Color(0xFF10B981),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier
@@ -318,7 +318,7 @@ class MainActivity : ComponentActivity() {
                                     .then(
                                         Modifier.drawBehind {
                                             drawCircle(
-                                                color = androidx.compose.ui.graphics.Color(0xFF49EACB),
+                                                color = androidx.compose.ui.graphics.Color(0xFF10B981),
                                                 radius = size.minDimension / 2,
                                                 style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f)
                                             )
@@ -334,7 +334,7 @@ class MainActivity : ComponentActivity() {
                         }) {
                             Text(
                                 if (showLogs || showAbout || showSettings) "Dashboard" else "Logs",
-                                color = Color(0xFF49EACB)
+                                color = Color(0xFF10B981)
                             )
                         }
                         // Settings button
@@ -342,7 +342,7 @@ class MainActivity : ComponentActivity() {
                             if (showSettings) { showSettings = false }
                             else { showSettings = true; showLogs = false; showAbout = false }
                         }) {
-                            Text("Settings", color = Color(0xFF49EACB))
+                            Text("Settings", color = Color(0xFF10B981))
                         }
                     }
                 )
@@ -352,7 +352,7 @@ class MainActivity : ComponentActivity() {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color(0xFF0F0F23))
+                        .background(Color(0xFF0C0C0F))
                         .padding(padding)
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -413,7 +413,7 @@ class MainActivity : ComponentActivity() {
                     .orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
                 val dashboardModifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFF0F0F23))
+                    .background(Color(0xFF0C0C0F))
                     .padding(padding)
                     .then(
                         if (isLandscape) Modifier.verticalScroll(rememberScrollState())
@@ -437,7 +437,7 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(150.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF162720)),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Column(
@@ -449,7 +449,7 @@ class MainActivity : ComponentActivity() {
                         ) {
                             Text(
                                 "HASHRATE",
-                                color = Color(0xFF49EACB),
+                                color = Color(0xFF10B981),
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
@@ -457,7 +457,7 @@ class MainActivity : ComponentActivity() {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 formatHashrate(hashrate),
-                                color = Color(0xFF49EACB),
+                                color = Color(0xFF10B981),
                                 fontSize = 44.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
@@ -472,7 +472,7 @@ class MainActivity : ComponentActivity() {
                         StatCardCompact(
                             label = "SHARES",
                             value = if (sharesRejected > 0) "$sharesFound/${sharesRejected}r" else sharesFound.toString(),
-                            color = Color(0xFFFFD700),
+                            color = Color(0xFF8B5CF6),
                             modifier = Modifier.weight(1f)
                         )
                         StatCardCompact(
@@ -499,8 +499,8 @@ class MainActivity : ComponentActivity() {
                             color = when {
                                 cpuTemp >= 55 -> Color(0xFFFF4444)
                                 cpuTemp >= 50 -> Color(0xFFFF8C00)
-                                cpuTemp >= 45 -> Color(0xFFFFD700)
-                                else -> Color(0xFF49EACB)
+                                cpuTemp >= 45 -> Color(0xFF8B5CF6)
+                                else -> Color(0xFF10B981)
                             },
                             modifier = Modifier.weight(1f)
                         )
@@ -509,8 +509,8 @@ class MainActivity : ComponentActivity() {
                             value = "$batteryPercent%",
                             color = when {
                                 batteryPercent <= 10 -> Color(0xFFFF4444)
-                                batteryPercent <= 20 -> Color(0xFFFFD700)
-                                else -> Color(0xFF49EACB)
+                                batteryPercent <= 20 -> Color(0xFF8B5CF6)
+                                else -> Color(0xFF10B981)
                             },
                             modifier = Modifier.weight(1f)
                         )
@@ -520,8 +520,8 @@ class MainActivity : ComponentActivity() {
                             color = when (thermalState) {
                                 "CRITICAL" -> Color(0xFFFF4444)
                                 "THROTTLE" -> Color(0xFFFF8C00)
-                                "WARNING" -> Color(0xFFFFD700)
-                                else -> Color(0xFF49EACB)
+                                "WARNING" -> Color(0xFF8B5CF6)
+                                else -> Color(0xFF10B981)
                             },
                             modifier = Modifier.weight(1f)
                         )
@@ -576,7 +576,7 @@ class MainActivity : ComponentActivity() {
                             .fillMaxWidth()
                             .height(64.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (sessionLive) Color(0xFFFF4444) else Color(0xFF49EACB)
+                            containerColor = if (sessionLive) Color(0xFFFF4444) else Color(0xFF10B981)
                         ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
@@ -619,27 +619,27 @@ class MainActivity : ComponentActivity() {
             else -> "IDLE"
         }
         val statusColor = when {
-            isRunning -> Color(0xFF49EACB)
-            poolState == MiningService.PoolState.CONNECTING -> Color(0xFFFFD700)
-            poolState == MiningService.PoolState.CONNECTED -> Color(0xFFFFD700)
-            poolState == MiningService.PoolState.ERROR -> Color(0xFFFFD700)  // yellow, not red
+            isRunning -> Color(0xFF10B981)
+            poolState == MiningService.PoolState.CONNECTING -> Color(0xFF8B5CF6)
+            poolState == MiningService.PoolState.CONNECTED -> Color(0xFF8B5CF6)
+            poolState == MiningService.PoolState.ERROR -> Color(0xFF8B5CF6)  // yellow, not red
             else -> Color.Gray
         }
         // Right-side pool line
         val (poolLabel, poolColor) = when (poolState) {
             MiningService.PoolState.CONNECTED ->
-                "POOL: ONLINE" to Color(0xFF49EACB)
+                "POOL: ONLINE" to Color(0xFF10B981)
             MiningService.PoolState.CONNECTING ->
-                "POOL: CONNECTING..." to Color(0xFFFFD700)
+                "POOL: CONNECTING..." to Color(0xFF8B5CF6)
             MiningService.PoolState.ERROR ->
-                "POOL: ${(poolErrorReason ?: "ERROR").uppercase()}" to Color(0xFFFFD700)
+                "POOL: ${(poolErrorReason ?: "ERROR").uppercase()}" to Color(0xFF8B5CF6)
             MiningService.PoolState.DISCONNECTED ->
                 "POOL: OFFLINE" to Color(0xFFFF4444)
         }
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF162720)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Row(
@@ -690,13 +690,13 @@ class MainActivity : ComponentActivity() {
         val bg = when (severity) {
             MiningService.ProtectionSeverity.CRITICAL -> Color(0xFF3A0F1A)
             MiningService.ProtectionSeverity.WARNING -> Color(0xFF3A2A0F)
-            MiningService.ProtectionSeverity.INFO -> Color(0xFF0F2A3A)
-            MiningService.ProtectionSeverity.NONE -> Color(0xFF1A1A2E)
+            MiningService.ProtectionSeverity.INFO -> Color(0xFF0C0C0F)
+            MiningService.ProtectionSeverity.NONE -> Color(0xFF162720)
         }
         val fg = when (severity) {
             MiningService.ProtectionSeverity.CRITICAL -> Color(0xFFFF6B6B)
-            MiningService.ProtectionSeverity.WARNING -> Color(0xFFFFD700)
-            MiningService.ProtectionSeverity.INFO -> Color(0xFF49EACB)
+            MiningService.ProtectionSeverity.WARNING -> Color(0xFF8B5CF6)
+            MiningService.ProtectionSeverity.INFO -> Color(0xFF10B981)
             MiningService.ProtectionSeverity.NONE -> Color.White
         }
         Box(
@@ -726,7 +726,7 @@ class MainActivity : ComponentActivity() {
     ) {
         Card(
             modifier = modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF162720)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
@@ -753,7 +753,7 @@ class MainActivity : ComponentActivity() {
     ) {
         Card(
             modifier = modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF162720)),
             shape = RoundedCornerShape(10.dp)
         ) {
             Column(
@@ -818,7 +818,7 @@ class MainActivity : ComponentActivity() {
             // ========= MINER CONFIGURATION =========
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF162720)),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(
@@ -827,7 +827,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     Text(
                         "MINER CONFIGURATION",
-                        color = Color(0xFF49EACB),
+                        color = Color(0xFF10B981),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
@@ -879,7 +879,7 @@ class MainActivity : ComponentActivity() {
                         ) {
                             Text(
                                 "Scan QR",
-                                color = Color(0xFF49EACB),
+                                color = Color(0xFF10B981),
                                 fontSize = 12.sp,
                                 fontFamily = FontFamily.Monospace
                             )
@@ -901,8 +901,8 @@ class MainActivity : ComponentActivity() {
                         valueRange = 1f..maxThreads.toFloat(),
                         steps = maxThreads - 2,
                         colors = SliderDefaults.colors(
-                            thumbColor = Color(0xFF49EACB),
-                            activeTrackColor = Color(0xFF49EACB)
+                            thumbColor = Color(0xFF10B981),
+                            activeTrackColor = Color(0xFF10B981)
                         )
                     )
 
@@ -924,7 +924,7 @@ class MainActivity : ComponentActivity() {
             // ========= POPMANAGER INTEGRATION =========
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF162720)),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(
@@ -933,7 +933,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     Text(
                         "POPMANAGER INTEGRATION (Optional)",
-                        color = Color(0xFF49EACB),
+                        color = Color(0xFF10B981),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
@@ -951,9 +951,9 @@ class MainActivity : ComponentActivity() {
                         popServerUrl.isBlank() ->
                             "Not configured" to Color.Gray
                         popPairingRequired || !hasStoredKey ->
-                            "Pairing required — enter code from OverManager" to Color(0xFFFFD700)
+                            "Pairing required — enter code from OverManager" to Color(0xFF8B5CF6)
                         popLastStatus == "reporting" ->
-                            "Paired · reporting" to Color(0xFF49EACB)
+                            "Paired · reporting" to Color(0xFF10B981)
                         popLastStatus == "error" ->
                             "Error: ${popLastError ?: "unknown"}" to Color(0xFFFF6B6B)
                         else ->
@@ -962,7 +962,7 @@ class MainActivity : ComponentActivity() {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFF0F0F23), shape = RoundedCornerShape(6.dp))
+                            .background(Color(0xFF0C0C0F), shape = RoundedCornerShape(6.dp))
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Text(
@@ -990,7 +990,7 @@ class MainActivity : ComponentActivity() {
                     ) {
                         Text(
                             "SCAN PAIRING QR",
-                            color = Color(0xFF49EACB),
+                            color = Color(0xFF10B981),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace
@@ -1027,7 +1027,7 @@ class MainActivity : ComponentActivity() {
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF49EACB),
+                                focusedBorderColor = Color(0xFF10B981),
                                 unfocusedBorderColor = Color.Gray
                             ),
                             modifier = Modifier.fillMaxWidth()
@@ -1072,7 +1072,7 @@ class MainActivity : ComponentActivity() {
                         ) {
                             Text(
                                 if (popTesting) "Testing..." else "Test Connection",
-                                color = Color(0xFF49EACB),
+                                color = Color(0xFF10B981),
                                 fontSize = 12.sp,
                                 fontFamily = FontFamily.Monospace
                             )
@@ -1112,8 +1112,8 @@ class MainActivity : ComponentActivity() {
                                 popPairingCode.length == 6 &&
                                 popServerUrl.isNotBlank(),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF49EACB),
-                                disabledContainerColor = Color(0xFF2A2A3E)
+                                containerColor = Color(0xFF10B981),
+                                disabledContainerColor = Color(0xFF1F2D26)
                             )
                         ) {
                             Text(
@@ -1130,7 +1130,7 @@ class MainActivity : ComponentActivity() {
                     popTestResult?.let {
                         Text(
                             it,
-                            color = if (it.startsWith("OK")) Color(0xFF49EACB) else Color(0xFFFF6B6B),
+                            color = if (it.startsWith("OK")) Color(0xFF10B981) else Color(0xFFFF6B6B),
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace
                         )
@@ -1138,7 +1138,7 @@ class MainActivity : ComponentActivity() {
                     popPairResult?.let {
                         Text(
                             it,
-                            color = if (it.startsWith("Paired")) Color(0xFF49EACB) else Color(0xFFFF6B6B),
+                            color = if (it.startsWith("Paired")) Color(0xFF10B981) else Color(0xFFFF6B6B),
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace
                         )
@@ -1154,7 +1154,7 @@ class MainActivity : ComponentActivity() {
                 }
                 Text(
                     "Settings saved!",
-                    color = Color(0xFF49EACB),
+                    color = Color(0xFF10B981),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
@@ -1193,7 +1193,7 @@ class MainActivity : ComponentActivity() {
                     showSaved = true
                 },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF49EACB)),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text("SAVE", color = Color.Black, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
@@ -1221,14 +1221,14 @@ class MainActivity : ComponentActivity() {
         var showDisableDialog by remember { mutableStateOf(false) }
         var showExtPowerDialog by remember { mutableStateOf(false) }
 
-        val accent = Color(0xFF49EACB)
+        val accent = Color(0xFF10B981)
         val warningColor = Color(0xFFFF6B6B)
         val labelColor = Color.White
         val subColor = Color.Gray
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF162720)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(
@@ -1285,7 +1285,7 @@ class MainActivity : ComponentActivity() {
                     TempSlider(
                         label = "Warn at",
                         value = warnTemp,
-                        color = Color(0xFFFFD700),
+                        color = Color(0xFF8B5CF6),
                         onValueChange = {
                             warnTemp = it
                             prefs.warnTempC = it
@@ -1486,7 +1486,7 @@ class MainActivity : ComponentActivity() {
                         Text("Cancel", color = accent, fontFamily = FontFamily.Monospace)
                     }
                 },
-                containerColor = Color(0xFF1A1A2E)
+                containerColor = Color(0xFF162720)
             )
         }
 
@@ -1527,7 +1527,7 @@ class MainActivity : ComponentActivity() {
                         Text("Cancel", color = Color.Gray, fontFamily = FontFamily.Monospace)
                     }
                 },
-                containerColor = Color(0xFF1A1A2E)
+                containerColor = Color(0xFF162720)
             )
         }
     }
@@ -1555,16 +1555,16 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        val accent = Color(0xFF49EACB)
+        val accent = Color(0xFF10B981)
         val labelColor = Color.White
         val subColor = Color.Gray
-        val pickColor = Color(0xFF49EACB)
-        val cpuHintColor = Color(0xFFFFD700)
+        val pickColor = Color(0xFF10B981)
+        val cpuHintColor = Color(0xFF8B5CF6)
         val unusableColor = Color(0xFF666666)
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF162720)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(
@@ -1692,7 +1692,7 @@ class MainActivity : ComponentActivity() {
                             Button(
                                 onClick = { snapshot = service.getThermalDiagnostics() },
                                 modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A2A3E))
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2D26))
                             ) {
                                 Text("Refresh", color = accent, fontFamily = FontFamily.Monospace)
                             }
@@ -1704,7 +1704,7 @@ class MainActivity : ComponentActivity() {
                                     android.widget.Toast.makeText(context, "Report copied", android.widget.Toast.LENGTH_SHORT).show()
                                 },
                                 modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A2A3E))
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2D26))
                             ) {
                                 Text("Copy report", color = accent, fontFamily = FontFamily.Monospace)
                             }
@@ -1795,11 +1795,11 @@ class MainActivity : ComponentActivity() {
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White,
-                    focusedBorderColor = Color(0xFF49EACB),
+                    focusedBorderColor = Color(0xFF10B981),
                     unfocusedBorderColor = Color(0xFF333333),
-                    focusedLabelColor = Color(0xFF49EACB),
+                    focusedLabelColor = Color(0xFF10B981),
                     unfocusedLabelColor = Color.Gray,
-                    cursorColor = Color(0xFF49EACB),
+                    cursorColor = Color(0xFF10B981),
                     errorBorderColor = errorColor,
                     errorLabelColor = errorColor,
                     errorCursorColor = errorColor
@@ -2000,7 +2000,7 @@ class MainActivity : ComponentActivity() {
         val dateFormat = remember { java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()) }
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF162720)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -2011,7 +2011,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     Text(
                         "MINING LOG (${logs.size})",
-                        color = Color(0xFF49EACB),
+                        color = Color(0xFF10B981),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
@@ -2038,8 +2038,8 @@ class MainActivity : ComponentActivity() {
                         "$ts $tag ${entry.message}",
                         color = when (entry.level) {
                             LogLevel.ERROR -> Color(0xFFFF4444)
-                            LogLevel.WARN -> Color(0xFFFFD700)
-                            LogLevel.INFO -> Color(0xFF49EACB)
+                            LogLevel.WARN -> Color(0xFF8B5CF6)
+                            LogLevel.INFO -> Color(0xFF10B981)
                         },
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
@@ -2059,7 +2059,7 @@ class MainActivity : ComponentActivity() {
     ) {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF162720)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(
@@ -2074,7 +2074,7 @@ class MainActivity : ComponentActivity() {
                 )
                 Text(
                     "OverMobile",
-                    color = Color(0xFF49EACB),
+                    color = Color(0xFF10B981),
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace
@@ -2093,7 +2093,7 @@ class MainActivity : ComponentActivity() {
                 OutlinedButton(
                     onClick = onCheckForUpdate,
                     enabled = !checking,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF49EACB))
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF10B981))
                 ) {
                     Text(
                         if (checking) "Checking..." else "Check for updates",
@@ -2109,7 +2109,7 @@ class MainActivity : ComponentActivity() {
                 if (resultMessage != null) {
                     Text(
                         resultMessage,
-                        color = Color(0xFF49EACB),
+                        color = Color(0xFF10B981),
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace
                     )
@@ -2127,13 +2127,13 @@ class MainActivity : ComponentActivity() {
                 )
                 Text(
                     "support@proofofprints.com",
-                    color = Color(0xFF49EACB),
+                    color = Color(0xFF10B981),
                     fontSize = 14.sp,
                     fontFamily = FontFamily.Monospace
                 )
                 Text(
                     "https://www.proofofprints.com",
-                    color = Color(0xFF49EACB),
+                    color = Color(0xFF10B981),
                     fontSize = 14.sp,
                     fontFamily = FontFamily.Monospace
                 )

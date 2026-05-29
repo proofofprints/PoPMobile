@@ -71,7 +71,7 @@ class SplashActivity : ComponentActivity() {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF0F0F23)),
+                .background(Color(0xFF0C0C0F)),
             contentAlignment = Alignment.Center
         ) {
             // Kaspa logo (phase 0)
@@ -89,7 +89,7 @@ class SplashActivity : ComponentActivity() {
 
                 Text(
                     "OverMobile",
-                    color = Color(0xFF49EACB),
+                    color = Color(0xFF10B981),
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace
