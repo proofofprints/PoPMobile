@@ -3,6 +3,18 @@
 All notable changes to OverMobile are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-05-29
+### Changed
+- **Rebrand to OverBuild Labs.** The app is now **OverMobile** by **OverBuild Labs** — matches the website, OverManager desktop app, and OverMiner hardware line. Application identity (`applicationId`), on-disk preferences, and signing keypair are unchanged: existing PoPMobile installs upgrade to OverMobile in place with no loss of wallet, pool, pairing, or settings state.
+- New OverBuild Labs palette: emerald-500 primary (`#10B981`), violet-500 accent (`#8B5CF6`), near-black surfaces (`#0C0C0F` / `#16161B`). The Compose colorScheme and system status/navigation bars now follow the brand palette; one-off accent literals scattered through the dashboard cards still match the previous Kaspa-teal style and will migrate in a follow-up.
+- New OverBuild Labs launcher icon (adaptive + legacy + round) generated from the hex/cube logo.
+- Worker-name default for fresh installs is now `OverMobile` (existing installs keep their saved value).
+- Device telemetry reports `manufacturer="OverBuild Labs"` to OverManager (previously `"Proof of Prints"`).
+
+### Deferred to a later release
+- GitHub repository URLs still point at `github.com/proofofprints/...` — the org has not been renamed yet.
+- `pool.proofofprints.com`, `support@proofofprints.com`, and `www.proofofprints.com` are unchanged pending infrastructure migration.
+
 ## [1.0.14] — 2026-04-21
 ## [1.0.13] — 2026-04-21
 ### Fixed
