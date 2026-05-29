@@ -428,14 +428,15 @@ class MainActivity : ComponentActivity() {
                             Text(
                                 "HASHRATE",
                                 color = Color(0xFF10B981),
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                fontFamily = FontFamily.SansSerif,
+                                letterSpacing = 3.sp
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 formatHashrate(hashrate),
-                                color = Color(0xFF10B981),
+                                color = Color.White,
                                 fontSize = 44.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
@@ -707,13 +708,25 @@ class MainActivity : ComponentActivity() {
             colors = CardDefaults.cardColors(containerColor = Color(0xFF16161B)),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
-                Text(label, color = Color.Gray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                Spacer(modifier = Modifier.height(4.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    label,
+                    color = Color.Gray,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = FontFamily.SansSerif,
+                    letterSpacing = 1.5.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     value,
                     color = color,
-                    fontSize = 24.sp,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace
                 )
@@ -738,15 +751,23 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(label, color = Color.Gray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    label,
+                    color = Color.Gray,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = FontFamily.SansSerif,
+                    letterSpacing = 1.5.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     value,
                     color = color,
-                    fontSize = 18.sp,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
-                    maxLines = 1
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
             }
         }
